@@ -1,0 +1,145 @@
+---
+# Restores certbot state (produced by backup-certbot.yml) onto a freshly
+# rebuilt pcd-ce, so it picks up the existing Let's Encrypt account and
+# certificate instead of re-registering and re-issuing from scratch.
+#
+# By default restores the most recent archive in backups/. To restore a
+# specific one instead:
+#   ansible-playbook -i inventory.ini restore-certbot.yml -e backup_file=backups/pcd-ce-certbot-20260901T164528.tar.gz
+#
+# Refuses to run if /etc/letsencrypt already exists on the target, so it
+# won't clobber a live setup — this is meant for a freshly (re)provisioned
+# VM.
+#
+# Usage:
+#   ansible-playbook -i inventory.ini restore-certbot.yml
+
+- name: Restore certbot state onto pcd-ce
+  hosts: pcd_vms
+  become: true
+  gather_facts: false
+
+  vars:
+    backup_local_dir: "{{ playbook_dir }}/backups"
+    backup_file: ""
+    remote_archive_path: /root/restore-certbot.tar.gz
+
+  tasks:
+    - name: Find available backup archives
+      ansible.builtin.find:
+        paths: "{{ backup_local_dir }}"
+        patterns: "pcd-ce-certbot-*.tar.gz"
+      delegate_to: localhost
+      become: false
+      register: found_backups
+      when: backup_file | length == 0
+
+    - name: Fail if no backup archives were found
+      ansible.builtin.fail:
+        msg: >-
+          No backup archives found in {{ backup_local_dir }}. Run
+          backup-certbot.yml first, or pass -e backup_file=<path>.
+      when: backup_file | length == 0 and found_backups.matched == 0
+
+    - name: Select the most recent backup archive
+      ansible.builtin.set_fact:
+        selected_backup: "{{ (found_backups.files | sort(attribute='mtime') | last).path }}"
+      when: backup_file | length == 0
+
+    - name: Use the explicitly specified backup archive
+      ansible.builtin.set_fact:
+        selected_backup: "{{ backup_file }}"
+      when: backup_file | length > 0
+
+    - name: Confirm the selected backup archive exists locally
+      ansible.builtin.stat:
+        path: "{{ selected_backup }}"
+      delegate_to: localhost
+      become: false
+      register: selected_backup_stat
+
+    - name: Fail if the selected backup archive doesn't exist
+      ansible.builtin.fail:
+        msg: "{{ selected_backup }} does not exist."
+      when: not selected_backup_stat.stat.exists
+
+    - name: Report which backup will be restored
+      ansible.builtin.debug:
+        msg: "Restoring {{ selected_backup }} onto {{ inventory_hostname }}"
+
+    - name: Check whether certbot state already exists on this host
+      ansible.builtin.stat:
+        path: /etc/letsencrypt
+      register: existing_letsencrypt
+
+    - name: Refuse to restore over an existing /etc/letsencrypt
+      ansible.builtin.fail:
+        msg: >-
+          /etc/letsencrypt already exists on this host. Restoring on top of
+          an existing certbot state could clobber it. Remove it first (or
+          back it up) if you really want to overwrite it.
+      when: existing_letsencrypt.stat.exists
+
+    - name: Install certbot and the Cloudflare DNS plugin
+      ansible.builtin.apt:
+        name:
+          - certbot
+          - python3-certbot-dns-cloudflare
+        state: present
+        update_cache: true
+
+    - name: Copy the backup archive to the VM
+      ansible.builtin.copy:
+        src: "{{ selected_backup }}"
+        dest: "{{ remote_archive_path }}"
+        owner: root
+        group: root
+        mode: "0600"
+
+    - name: Extract the archive into place
+      ansible.builtin.unarchive:
+        src: "{{ remote_archive_path }}"
+        dest: /
+        remote_src: true
+
+    - name: Remove the archive from the VM
+      ansible.builtin.file:
+        path: "{{ remote_archive_path }}"
+        state: absent
+
+    - name: Ensure certbot's renewal timer is enabled
+      ansible.builtin.systemd:
+        name: certbot.timer
+        state: started
+        enabled: true
+
+    - name: Verify the cert and key are in place
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - /etc/public-certs/pcd.pem
+        - /etc/public-certs/pcd.key
+      register: restored_files
+
+    - name: Fail if restore didn't produce the expected files
+      ansible.builtin.fail:
+        msg: "{{ item.item }} was not restored."
+      loop: "{{ restored_files.results }}"
+      when: not item.stat.exists
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Confirm certbot recognizes the restored certificate
+      ansible.builtin.command:
+        cmd: certbot certificates --cert-name pcd.rye.ninja
+      register: certbot_certificates
+      changed_when: false
+
+    - name: Show certbot's view of the restored certificate
+      ansible.builtin.debug:
+        var: certbot_certificates.stdout_lines
+
+    - name: Dry-run a renewal to confirm the restored setup actually works
+      ansible.builtin.command:
+        cmd: certbot renew --cert-name pcd.rye.ninja --dry-run
+      changed_when: false

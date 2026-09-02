@@ -1,0 +1,11 @@
+#!/bin/bash
+# Deploy hook: copies the current lineage for {{ cert_name }} to the
+# fixed paths this playbook was asked to maintain. Invoked by certbot after
+# both the initial issuance and every future renewal (--deploy-hook).
+set -euo pipefail
+
+install -m 0644 -o root -g root \
+  "/etc/letsencrypt/live/{{ cert_name }}/fullchain.pem" "{{ cert_path }}"
+
+install -m 0640 -o root -g root \
+  "/etc/letsencrypt/live/{{ cert_name }}/privkey.pem" "{{ key_path }}"

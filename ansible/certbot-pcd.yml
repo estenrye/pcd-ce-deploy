@@ -1,0 +1,148 @@
+---
+# Installs certbot on pcd-ce and issues a Let's Encrypt wildcard certificate
+# for *.rye.ninja using the DNS-01 challenge via the certbot-dns-cloudflare
+# plugin. DNS-01 is required for wildcards (HTTP-01 can't issue them) and,
+# as a bonus, doesn't require the domain to resolve to this host or for any
+# inbound port to be reachable, so it works regardless of whatever else
+# (k3s/Calico, etc.) is running on the VM.
+#
+# Note: *.rye.ninja covers exactly one label of subdomain (pcd.rye.ninja,
+# foo.rye.ninja, ...) but NOT the bare apex rye.ninja itself — add
+# `-d rye.ninja` too if that's also needed.
+#
+# The Cloudflare API token is pulled from 1Password at playbook-run time by
+# running `op read` as a local (delegate_to: localhost) task on the control
+# node — the token is never written to disk here or displayed in playbook
+# output (both the read and the credentials-file task are no_log), only
+# sent over SSH into the file certbot reads it from on the VM.
+#
+# (Note: the community.general.onepassword lookup plugin doesn't work here —
+# it only recognizes legacy `op signin` CLI sessions, not the 1Password
+# desktop app's CLI integration this account uses. Plain `op read` does.)
+#
+# Requires on the control node (this machine):
+#   - `op` CLI with desktop app integration enabled and unlocked
+#     (Settings → Developer → "Integrate with 1Password CLI")
+#
+# Usage:
+#   ansible-playbook -i inventory.ini certbot-pcd.yml
+
+- name: Deploy certbot and issue a DNS-01 wildcard certificate for *.rye.ninja
+  hosts: pcd_vms
+  become: true
+  gather_facts: false
+
+  vars:
+    # Lineage identity — kept stable across this change so the existing
+    # renewal config/deploy-hook wiring for this cert carries over. The
+    # actual domain(s) covered are set independently via cert_domains.
+    cert_name: pcd.rye.ninja
+    cert_domains: "*.rye.ninja"
+    le_email: esten.rye@ryezone.com
+    cert_dir: /etc/public-certs
+    cert_path: "{{ cert_dir }}/pcd.pem"
+    key_path: "{{ cert_dir }}/pcd.key"
+    deploy_hook_path: /usr/local/sbin/copy-pcd-cert.sh
+
+    cert_key_type: rsa
+    cert_rsa_key_size: 2048
+
+    cf_credentials_path: /etc/letsencrypt/cloudflare.ini
+    onepassword_account: ryefamily.1password.com
+    onepassword_secret_ref: "op://controlplane/cloudflare-api-token/credential"
+
+  tasks:
+    - name: Install certbot and the Cloudflare DNS plugin
+      ansible.builtin.apt:
+        name:
+          - certbot
+          - python3-certbot-dns-cloudflare
+        state: present
+        update_cache: true
+
+    - name: Ensure the public-certs directory exists
+      ansible.builtin.file:
+        path: "{{ cert_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Render the post-issuance/renewal deploy hook
+      ansible.builtin.template:
+        src: templates/copy-pcd-cert.sh.j2
+        dest: "{{ deploy_hook_path }}"
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Read the Cloudflare API token from 1Password (control node)
+      ansible.builtin.command:
+        cmd: "op read {{ onepassword_secret_ref }} --account {{ onepassword_account }}"
+      delegate_to: localhost
+      become: false
+      register: cf_token_result
+      changed_when: false
+      no_log: true
+
+    - name: Write the Cloudflare API token credentials file
+      ansible.builtin.copy:
+        content: "dns_cloudflare_api_token = {{ cf_token_result.stdout }}\n"
+        dest: "{{ cf_credentials_path }}"
+        owner: root
+        group: root
+        mode: "0600"
+      no_log: true
+
+    - name: Check the existing certificate's current key type and domains
+      ansible.builtin.command:
+        cmd: "certbot certificates --cert-name {{ cert_name }}"
+      register: current_cert_info
+      changed_when: false
+      failed_when: false
+
+    - name: Determine whether the existing cert already matches the desired state
+      ansible.builtin.set_fact:
+        cert_matches_desired_state: >-
+          {{ (('Key Type: ' ~ (cert_key_type | upper)) in current_cert_info.stdout)
+             and (('Domains: ' ~ cert_domains) in current_cert_info.stdout) }}
+
+    - name: Obtain/renew the certificate via DNS-01 (Cloudflare)
+      ansible.builtin.command:
+        cmd: >-
+          certbot certonly
+          --dns-cloudflare
+          --dns-cloudflare-credentials {{ cf_credentials_path }}
+          --dns-cloudflare-propagation-seconds 30
+          --non-interactive --agree-tos
+          --cert-name {{ cert_name }}
+          --key-type {{ cert_key_type }}
+          {{ '--rsa-key-size ' ~ cert_rsa_key_size if cert_key_type == 'rsa' else '' }}
+          {{ '--force-renewal' if not cert_matches_desired_state else '' }}
+          -m {{ le_email }}
+          -d {{ cert_domains }}
+          --deploy-hook {{ deploy_hook_path }}
+      register: certbot_result
+      changed_when: "'Successfully received certificate' in certbot_result.stdout"
+
+    - name: Ensure certbot's renewal timer is enabled
+      ansible.builtin.systemd:
+        name: certbot.timer
+        state: started
+        enabled: true
+
+    - name: Verify the cert and key landed at the requested paths
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - "{{ cert_path }}"
+        - "{{ key_path }}"
+      register: final_files
+
+    - name: Fail if the deploy hook didn't produce the expected files
+      ansible.builtin.fail:
+        msg: "{{ item.item }} was not created by the deploy hook."
+      loop: "{{ final_files.results }}"
+      when: not item.stat.exists
+      loop_control:
+        label: "{{ item.item }}"

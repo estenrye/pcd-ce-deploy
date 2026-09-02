@@ -1,0 +1,70 @@
+---
+# Backs up everything certbot needs to keep pcd.rye.ninja's certificate
+# working after pcd-ce is destroyed and rebuilt: the full /etc/letsencrypt
+# state (LE account key, cert/chain/key, renewal config incl. the
+# dns-cloudflare credentials file and deploy-hook reference), the deployed
+# /etc/public-certs copies, and the deploy-hook script itself.
+#
+# Restoring this onto a fresh VM (same paths, then `certbot renew --force-
+# renewal` if you want to confirm it still works, or just leave it — certbot
+# will renew automatically near expiry) avoids re-registering with Let's
+# Encrypt and burning a real issuance against its rate limits.
+#
+# NOTE: the resulting archive contains private key material (the cert's
+# private key and the Cloudflare API token in cloudflare.ini). It's written
+# to backups/ next to this playbook — keep that out of anything that syncs
+# or gets committed anywhere.
+#
+# Usage:
+#   ansible-playbook -i inventory.ini backup-certbot.yml
+
+- name: Back up certbot state from pcd-ce
+  hosts: pcd_vms
+  become: true
+  gather_facts: true
+
+  vars:
+    backup_paths:
+      - /etc/letsencrypt
+      - /etc/public-certs
+      - /usr/local/sbin/copy-pcd-cert.sh
+    backup_local_dir: "{{ playbook_dir }}/backups"
+    backup_filename: "pcd-ce-certbot-{{ ansible_date_time.iso8601_basic_short }}.tar.gz"
+    remote_archive_path: "/root/{{ backup_filename }}"
+
+  tasks:
+    - name: Check that all expected backup paths exist
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop: "{{ backup_paths }}"
+      register: path_checks
+
+    - name: Fail if a required path is missing
+      ansible.builtin.fail:
+        msg: "{{ item.item }} does not exist on this host — nothing to back up."
+      loop: "{{ path_checks.results }}"
+      when: not item.stat.exists
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Create the backup archive on the VM
+      ansible.builtin.command:
+        cmd: >-
+          tar -czpf {{ remote_archive_path }}
+          -C /
+          {{ backup_paths | map('regex_replace', '^/', '') | join(' ') }}
+
+    - name: Fetch the archive to the control node
+      ansible.builtin.fetch:
+        src: "{{ remote_archive_path }}"
+        dest: "{{ backup_local_dir }}/{{ backup_filename }}"
+        flat: true
+
+    - name: Remove the archive from the VM
+      ansible.builtin.file:
+        path: "{{ remote_archive_path }}"
+        state: absent
+
+    - name: Report backup location
+      ansible.builtin.debug:
+        msg: "Backup saved to {{ backup_local_dir }}/{{ backup_filename }}"

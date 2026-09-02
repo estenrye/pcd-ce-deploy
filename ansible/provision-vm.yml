@@ -1,0 +1,226 @@
+---
+# Provisions a new Ubuntu 24.04 (Noble) KVM/libvirt guest with a 160 GB OS
+# disk, using the official Ubuntu cloud image + cloud-init (via virt-install
+# --import). The OS disk is a raw zvol in the "vms" ZFS storage pool (backed
+# by the vmpool zpool, the 4TB volume) rather than a qcow2 file.
+#
+# Run against the KVM host itself (mf-ms-a2-01.usmnblm01.rye.ninja) — the
+# libvirt/qemu/zfs tooling and image files all live there.
+#
+# Usage:
+#   ansible-playbook -i inventory.ini provision-vm.yml -e vm_name=myvm
+#
+# Edit the defaults below (or override with -e) for name, sizing, network,
+# and the SSH key that gets seeded into the guest's admin account.
+
+- name: Provision Ubuntu 24.04 KVM guest
+  hosts: kvm_hosts
+  become: true
+  gather_facts: true
+
+  vars:
+    vm_name: pcd-ce
+    vm_domain: usmnblm01.rye.ninja
+    vm_vcpus: 12
+    vm_memory_mb: 32768
+    vm_disk_gb: 160
+    vm_admin_user: ubuntu
+    vm_timezone: Etc/UTC
+    # Public keys injected via cloud-init for vm_admin_user. Override with -e
+    # (pass a YAML/JSON list, e.g. -e '{"vm_ssh_public_keys": ["ssh-ed25519 AAAA..."]}').
+    vm_ssh_public_keys:
+      - "ecdsa-sha2-nistp521 AAAAE2VjZHNhLXNoYTItbmlzdHA1MjEAAAAIbmlzdHA1MjEAAACFBABRrM38w/r7E5eHrD5eeQ0tU5sNlpseYO3s0kKKf0tbYIOsGW52ofUBzzx2/3PoAANOX/rZIwk6DmmiQxPizKeF6QCZuHrzknDHNHtg2JNWlsh24zNI9OjX8e+bB1oPE8y/PQPXPA8hrf7RZhU0wb3Ld4I6tOpcdiimlOI4sYmPgITmKA== esten@MacBook-Pro"
+      - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDLOOcdudgGgvUIsFxIDY6/uq9daQ7kmvSmRydv8KiqOXSUb5NH3YnnYpqcl7Le8T9U5++I71S5kRSxgsq+CY8ZmdrG522Rxy1/ixl0REKSKexZ7h/iue6ve0WxE9tS7Cj9ubug4/d1l6cFEdIp1KyzPdMRJtW9LB650t/mpe17LBic39XOcHfWdpYqCmW4Wrg9D1nO/mO+Gx1LLwfii770aZ6lHIxsaVj1FwmqKdlQswco10KPfB2WvzBxSaUhV4+xUV2uJ9aXshQPUx49flqiPgwQn7jiQxkOdkGb0X63WJjKCImGn9uJ5ms+3MVoLPeRYucKZvDxqJsYieV1Zy8uDODoqrJHPaXnixVVMZFNtKpvHDYgEoURqE2i+T/zclOdmLcSe5oYtD90/MGcKTuScZaqv5UOYfGK/y9Rqhleofznx6QqHPFVmN8HDgJje8EVwWfob3SbzfP3fYa60OJF0nfjxCBGCHZa8ZFZ47/qmpJsgWHgj6tlaYJw532lG4gCToy22PvTLmn7RQ8eB4IDmJWepezElkeH4KuQoM7o1UEPEdMkbeH1lzALj2sgGd3AnYhJxODLhlRULYdsA/dFp+bApB1YXf64fPg2ksPJdSQ7z/DIAHa1W0u6YhqVHRtaPq5s1zHzFKyDv3SClXGskExlFWz73P8l5nJkEqZfVw== esten@platform9.com"
+
+    # Bridge device on the KVM host that's on the real LAN (required for the
+    # static addresses below to actually route).
+    vm_bridge: br0
+
+    # Fixed MAC so cloud-init's network-config can reliably match this NIC
+    # regardless of what predictable interface name the kernel assigns.
+    # 52:54:00:xx:xx:xx is the QEMU/KVM-reserved OUI, safe from collisions
+    # with real hardware.
+    vm_mac_address: "52:54:00:45:45:45"
+
+    vm_ipv4_address: "10.45.45.45/16"
+    vm_ipv4_gateway: "10.45.0.1"
+
+    # Two IPv6 prefixes (ULA + GUA), each with its own default gateway.
+    # A single routing table can only have one unqualified default route, so
+    # each prefix gets its own table plus a routing-policy rule that sends
+    # traffic *sourced* from that prefix out via the matching table/gateway.
+    vm_ipv6_networks:
+      - address: "fd97:45c2:b3a1:100::dead/64"
+        prefix: "fd97:45c2:b3a1:100::/64"
+        gateway: "fd97:45c2:b3a1:100::1"
+        table: 100
+      - address: "2607:3640:1064:270::dead/64"
+        prefix: "2607:3640:1064:270::/64"
+        gateway: "2607:3640:1064:270::1"
+        table: 200
+
+    vm_dns_servers:
+      - "10.45.0.1"
+      - "1.1.1.1"
+
+    # OS disk lives as a raw zvol in the "vms" libvirt storage pool, which is
+    # a native ZFS pool backed by the vmpool zpool (the 4TB volume). This pool
+    # only supports raw volumes (zvols), not qcow2 files.
+    vm_storage_pool: vms
+    vm_zvol_device: "/dev/zvol/vmpool/vms/{{ vm_name }}"
+
+    # Scratch space for the base cloud image cache and the cloud-init seed
+    # ISO — these are just files, not VM disks, so the default dir-backed
+    # pool's directory is fine for them.
+    libvirt_pool_dir: /var/lib/libvirt/images
+    seed_iso_path: "{{ libvirt_pool_dir }}/{{ vm_name }}-seed.iso"
+    cloud_init_workdir: "/root/.cloud-init/{{ vm_name }}"
+
+    ubuntu_release: noble
+    base_image_url: "https://cloud-images.ubuntu.com/{{ ubuntu_release }}/current/{{ ubuntu_release }}-server-cloudimg-amd64.img"
+    base_image_path: "{{ libvirt_pool_dir }}/base/{{ ubuntu_release }}-server-cloudimg-amd64.img"
+
+  tasks:
+    - name: Install required packages on the KVM host
+      ansible.builtin.apt:
+        name:
+          - qemu-kvm
+          - libvirt-daemon-system
+          - libvirt-clients
+          - virtinst
+          - cloud-image-utils
+          - genisoimage
+        state: present
+        update_cache: true
+
+    - name: Ensure libvirtd is running
+      ansible.builtin.systemd:
+        name: libvirtd
+        state: started
+        enabled: true
+
+    - name: Ensure base image directory exists
+      ansible.builtin.file:
+        path: "{{ libvirt_pool_dir }}/base"
+        state: directory
+        mode: "0755"
+
+    - name: Download Ubuntu {{ ubuntu_release }} cloud image
+      ansible.builtin.get_url:
+        url: "{{ base_image_url }}"
+        dest: "{{ base_image_path }}"
+        mode: "0644"
+      register: base_image_download
+
+    - name: Check whether the VM's zvol already exists
+      ansible.builtin.command:
+        cmd: "virsh vol-info --pool {{ vm_storage_pool }} {{ vm_name }}"
+      register: vol_info_check
+      changed_when: false
+      failed_when: false
+
+    - name: Fail fast if a VM with this name is already defined
+      ansible.builtin.command:
+        cmd: "virsh dominfo {{ vm_name }}"
+      register: dominfo_check
+      changed_when: false
+      failed_when: false
+
+    - name: Abort if domain already exists
+      ansible.builtin.fail:
+        msg: >-
+          A libvirt domain named '{{ vm_name }}' already exists on this host.
+          Pick a different vm_name, or destroy/undefine it first.
+      when: dominfo_check.rc == 0
+
+    - name: Check that the target bridge exists on the host
+      ansible.builtin.command:
+        cmd: "ip link show {{ vm_bridge }}"
+      register: bridge_check
+      changed_when: false
+      failed_when: false
+
+    - name: Abort if the bridge device doesn't exist
+      ansible.builtin.fail:
+        msg: >-
+          Bridge device '{{ vm_bridge }}' was not found on this host, so the
+          guest's static addresses would not route. Create the bridge first
+          (e.g. via netplan) or set vm_bridge to an existing device.
+      when: bridge_check.rc != 0
+
+    - name: Create the ZFS volume (zvol) for the VM's OS disk
+      ansible.builtin.command:
+        cmd: >-
+          virsh vol-create-as {{ vm_storage_pool }} {{ vm_name }}
+          {{ vm_disk_gb }}G --format raw
+      when: vol_info_check.rc != 0
+
+    - name: Write the cloud image into the zvol
+      ansible.builtin.command:
+        cmd: "qemu-img convert -O raw {{ base_image_path }} {{ vm_zvol_device }}"
+      when: vol_info_check.rc != 0
+
+    - name: Create cloud-init working directory
+      ansible.builtin.file:
+        path: "{{ cloud_init_workdir }}"
+        state: directory
+        mode: "0700"
+
+    - name: Render cloud-init user-data
+      ansible.builtin.template:
+        src: templates/user-data.yml.j2
+        dest: "{{ cloud_init_workdir }}/user-data"
+        mode: "0600"
+
+    - name: Render cloud-init meta-data
+      ansible.builtin.template:
+        src: templates/meta-data.yml.j2
+        dest: "{{ cloud_init_workdir }}/meta-data"
+        mode: "0600"
+
+    - name: Render cloud-init network-config
+      ansible.builtin.template:
+        src: templates/network-config.yml.j2
+        dest: "{{ cloud_init_workdir }}/network-config"
+        mode: "0600"
+
+    - name: Build cloud-init seed ISO
+      ansible.builtin.command:
+        cmd: >-
+          cloud-localds
+          --network-config={{ cloud_init_workdir }}/network-config
+          {{ seed_iso_path }}
+          {{ cloud_init_workdir }}/user-data
+          {{ cloud_init_workdir }}/meta-data
+      when: vol_info_check.rc != 0
+
+    - name: Define and start the VM with virt-install
+      ansible.builtin.command:
+        cmd: >-
+          virt-install
+          --name {{ vm_name }}
+          --memory {{ vm_memory_mb }}
+          --vcpus {{ vm_vcpus }}
+          --disk vol={{ vm_storage_pool }}/{{ vm_name }},format=raw,bus=virtio
+          --disk path={{ seed_iso_path }},device=cdrom
+          --os-variant ubuntu24.04
+          --virt-type kvm
+          --graphics none
+          --network bridge={{ vm_bridge }},model=virtio,mac.address={{ vm_mac_address }}
+          --import
+          --noautoconsole
+      when: vol_info_check.rc != 0
+
+    - name: Wait for the guest to report its network config
+      ansible.builtin.command:
+        cmd: "virsh domifaddr {{ vm_name }} --source agent"
+      register: domifaddr
+      changed_when: false
+      failed_when: false
+      until: domifaddr.rc == 0 and domifaddr.stdout is search('ipv4')
+      retries: 30
+      delay: 10
+
+    - name: Show guest network info
+      ansible.builtin.debug:
+        var: domifaddr.stdout_lines

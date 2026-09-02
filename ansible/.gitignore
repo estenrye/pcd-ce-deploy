@@ -1,0 +1,6 @@
+# Contains private key material (cert private keys, Cloudflare API token) —
+# never commit.
+backups/
+
+# Ansible retry files
+*.retry

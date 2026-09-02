@@ -1,0 +1,31 @@
+version: 2
+ethernets:
+  eth0:
+    match:
+      macaddress: "{{ vm_mac_address }}"
+    set-name: eth0
+    dhcp4: false
+    dhcp6: false
+    addresses:
+      - {{ vm_ipv4_address }}
+{% for net in vm_ipv6_networks %}
+      - {{ net.address }}
+{% endfor %}
+    routes:
+      - to: 0.0.0.0/0
+        via: {{ vm_ipv4_gateway }}
+{% for net in vm_ipv6_networks %}
+      - to: ::/0
+        via: {{ net.gateway }}
+        table: {{ net.table }}
+{% endfor %}
+    routing-policy:
+{% for net in vm_ipv6_networks %}
+      - from: {{ net.prefix }}
+        table: {{ net.table }}
+{% endfor %}
+    nameservers:
+      addresses:
+{% for ns in vm_dns_servers %}
+        - {{ ns }}
+{% endfor %}

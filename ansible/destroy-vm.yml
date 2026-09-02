@@ -1,0 +1,85 @@
+---
+# Destroys a KVM/libvirt guest created by provision-vm.yml: stops and
+# undefines the domain, deletes its OS disk (zvol) from the ZFS storage
+# pool, and cleans up the cloud-init seed ISO / working files on the host.
+#
+# Usage:
+#   ansible-playbook -i inventory.ini destroy-vm.yml -e vm_name=pcd-ce
+#
+# Safe to re-run: every step tolerates the VM/volume/files already being gone.
+
+- name: Destroy a KVM guest and its storage
+  hosts: kvm_hosts
+  become: true
+  gather_facts: false
+
+  vars:
+    vm_name: pcd-ce
+    vm_storage_pool: vms
+    libvirt_pool_dir: /var/lib/libvirt/images
+    seed_iso_path: "{{ libvirt_pool_dir }}/{{ vm_name }}-seed.iso"
+    cloud_init_workdir: "/root/.cloud-init/{{ vm_name }}"
+
+  tasks:
+    - name: Check whether the domain is defined
+      ansible.builtin.command:
+        cmd: "virsh dominfo {{ vm_name }}"
+      register: dominfo_check
+      changed_when: false
+      failed_when: false
+
+    - name: Stop the domain if it's running
+      ansible.builtin.command:
+        cmd: "virsh destroy {{ vm_name }}"
+      register: destroy_result
+      changed_when: destroy_result.rc == 0
+      failed_when: false
+      when: dominfo_check.rc == 0
+
+    - name: Undefine the domain
+      ansible.builtin.command:
+        cmd: "virsh undefine {{ vm_name }}"
+      when: dominfo_check.rc == 0
+
+    - name: Check whether the OS disk (zvol) still exists
+      ansible.builtin.command:
+        cmd: "virsh vol-info --pool {{ vm_storage_pool }} {{ vm_name }}"
+      register: vol_info_check
+      changed_when: false
+      failed_when: false
+
+    # The host's nightly zfs-replicate-vms job leaves @nightly-*/@weekly-*
+    # snapshots on every zvol under vmpool/vms, and libvirt's ZFS storage
+    # driver shells out to a bare `zfs destroy` (no -r) on vol-delete, which
+    # fails with "volume has children" if any snapshot exists. Same known
+    # issue documented (but "not yet automated") for the controlplane
+    # cluster's VMs in flux-platform-src's talos-node-replace.md -- clear
+    # them first so vol-delete below doesn't hang/fail.
+    - name: Check for ZFS snapshots on the zvol
+      ansible.builtin.command:
+        cmd: "zfs list -H -o name -t snapshot -r vmpool/vms/{{ vm_name }}"
+      register: vm_zvol_snapshots
+      changed_when: false
+      failed_when: false
+      when: vol_info_check.rc == 0
+
+    - name: Destroy ZFS snapshots blocking zvol deletion
+      ansible.builtin.command:
+        cmd: "zfs destroy {{ item }}"
+      loop: "{{ vm_zvol_snapshots.stdout_lines | default([]) }}"
+      when: vol_info_check.rc == 0
+
+    - name: Delete the OS disk (zvol) from the {{ vm_storage_pool }} pool
+      ansible.builtin.command:
+        cmd: "virsh vol-delete --pool {{ vm_storage_pool }} {{ vm_name }}"
+      when: vol_info_check.rc == 0
+
+    - name: Remove the cloud-init seed ISO
+      ansible.builtin.file:
+        path: "{{ seed_iso_path }}"
+        state: absent
+
+    - name: Remove the cloud-init working directory
+      ansible.builtin.file:
+        path: "{{ cloud_init_workdir }}"
+        state: absent

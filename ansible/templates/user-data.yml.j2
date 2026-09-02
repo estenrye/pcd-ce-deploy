@@ -1,0 +1,32 @@
+#cloud-config
+hostname: {{ vm_name }}
+fqdn: {{ vm_name }}.{{ vm_domain }}
+manage_etc_hosts: true
+
+users:
+  - name: {{ vm_admin_user }}
+    groups: [sudo]
+    shell: /bin/bash
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    lock_passwd: true
+    ssh_authorized_keys:
+{% for key in vm_ssh_public_keys %}
+      - {{ key }}
+{% endfor %}
+
+package_update: true
+package_upgrade: false
+packages:
+  - qemu-guest-agent
+
+# Cloud images already resize the root fs to fill the disk on first boot,
+# but this makes it explicit/idempotent in case that module is disabled.
+growpart:
+  mode: auto
+  devices: ['/']
+resize_rootfs: true
+
+runcmd:
+  - systemctl enable --now qemu-guest-agent
+
+timezone: {{ vm_timezone }}
