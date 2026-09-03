@@ -61,10 +61,10 @@ variable "pool_name" {
   default     = "flash-pool"
 }
 
-variable "cinder_dataset_name" {
-  description = "Name of the dataset backing the PCD Cinder (block storage) NFS backend."
+variable "nova_dataset_name" {
+  description = "Name of the dataset backing the PCD Nova (block storage) NFS backend."
   type        = string
-  default     = "pcd-ce-cinder"
+  default     = "pcd-ce-nova"
 }
 
 variable "glance_dataset_name" {

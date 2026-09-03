@@ -7,9 +7,9 @@ resource "truenas_service" "nfs" {
 # exports as root inside their own containers. Without root-squash mapped
 # away, NFS's default root-squash would leave them unable to create/chown
 # volumes and images on the share.
-resource "truenas_share_nfs" "cinder" {
-  path    = truenas_dataset.cinder.mount_point
-  comment = "PCD CE Cinder backend"
+resource "truenas_share_nfs" "nova" {
+  path    = truenas_dataset.nova.mount_point
+  comment = "PCD CE Nova backend"
   enabled = true
 
   networks = var.nfs_allowed_networks
