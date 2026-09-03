@@ -1,0 +1,15 @@
+# Copy to terraform.tfvars and fill in — terraform.tfvars is gitignored.
+
+# Account name/ID as shown in the 1Password desktop app's sidebar. Leave
+# unset here to source it from OP_ACCOUNT instead.
+onepassword_account = "ryefamily.1password.com"
+
+truenas_url      = "https://nas.rye.ninja"      # management/API endpoint
+truenas_nfs_host = "10.45.60.254"               # storage-network address NFS clients mount
+
+# Uncomment to override the defaults in variables.tf:
+# truenas_username       = "admin"
+# onepassword_vault      = "controlplane"
+# onepassword_item_title = "truenas-api-key"
+# pool_name              = "flash-pool"
+# nfs_allowed_networks   = ["10.45.45.45/32"]
