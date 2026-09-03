@@ -99,6 +99,17 @@
         state: started
         enabled: true
 
+    - name: Ensure IPv6 is enabled on the KVM host
+      # This host is IPv6-only (no A record, managed over its AAAA address),
+      # so disable_ipv6 must stay 0 — setting it to 1 cuts the very SSH
+      # session Ansible is using to manage the host.
+      ansible.posix.sysctl:
+        name: net.ipv6.conf.all.disable_ipv6
+        value: "0"
+        sysctl_set: true
+        state: present
+        reload: true
+
     - name: Ensure base image directory exists
       ansible.builtin.file:
         path: "{{ libvirt_pool_dir }}/base"

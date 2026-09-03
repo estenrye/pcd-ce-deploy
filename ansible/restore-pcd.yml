@@ -1,0 +1,212 @@
+---
+# Restores the PCD Community Edition management plane from an archive
+# produced by backup-pcd.yml, following Platform9's documented restore
+# procedure (backup-and-restore-ce): stop the management plane, run
+# `airctl restore`, then check status.
+#
+# WARNING: this STOPS the CE management plane (airctl unconfigure-du
+# --force) before restoring. Plan for downtime. VM disks, external storage,
+# and anything outside the CE host are NOT covered — this only restores
+# the management plane.
+#
+# This does not restore airctl-config.yaml or the k3s kubeconfig onto the
+# host automatically — per Platform9's docs, `airctl restore` expects the
+# host's own config to already be in place. If this host was rebuilt and
+# is missing that config, this playbook will fail with a pointer to the
+# copies bundled in the backup archive so you can restore them manually
+# first.
+#
+# By default restores the most recent archive in backups/. To restore a
+# specific one instead:
+#   ansible-playbook -i inventory.ini restore-pcd.yml -e backup_file=backups/pcd-ce-backup-20260901T164528.tar.gz
+#
+# Usage:
+#   ansible-playbook -i inventory.ini restore-pcd.yml
+
+- name: Restore the PCD CE management plane
+  hosts: pcd_vms
+  become: true
+  gather_facts: false
+
+  vars:
+    airctl_bin: /opt/pf9/airctl/airctl
+    airctl_config: /opt/pf9/airctl/conf/airctl-config.yaml
+    backup_local_dir: "{{ playbook_dir }}/backups"
+    backup_file: ""
+    remote_archive_path: /root/pcd-ce-restore.tar.gz
+    remote_restore_dir: /root/pcd-ce-restore
+
+  tasks:
+    - name: Find available backup archives
+      ansible.builtin.find:
+        paths: "{{ backup_local_dir }}"
+        patterns: "pcd-ce-backup-*.tar.gz"
+      delegate_to: localhost
+      become: false
+      register: found_backups
+      when: backup_file | length == 0
+
+    - name: Fail if no backup archives were found
+      ansible.builtin.fail:
+        msg: >-
+          No backup archives found in {{ backup_local_dir }}. Run
+          backup-pcd.yml first, or pass -e backup_file=<path>.
+      when: backup_file | length == 0 and found_backups.matched == 0
+
+    - name: Select the most recent backup archive
+      ansible.builtin.set_fact:
+        selected_backup: "{{ (found_backups.files | sort(attribute='mtime') | last).path }}"
+      when: backup_file | length == 0
+
+    - name: Use the explicitly specified backup archive
+      ansible.builtin.set_fact:
+        selected_backup: "{{ backup_file }}"
+      when: backup_file | length > 0
+
+    - name: Confirm the selected backup archive exists locally
+      ansible.builtin.stat:
+        path: "{{ selected_backup }}"
+      delegate_to: localhost
+      become: false
+      register: selected_backup_stat
+
+    - name: Fail if the selected backup archive doesn't exist
+      ansible.builtin.fail:
+        msg: "{{ selected_backup }} does not exist."
+      when: not selected_backup_stat.stat.exists
+
+    - name: Report which backup will be restored
+      ansible.builtin.debug:
+        msg: "Restoring {{ selected_backup }} onto {{ inventory_hostname }}"
+
+    - name: Check that airctl is present
+      ansible.builtin.stat:
+        path: "{{ airctl_bin }}"
+      register: airctl_bin_stat
+
+    - name: Fail if airctl is missing
+      ansible.builtin.fail:
+        msg: >-
+          {{ airctl_bin }} not found. This restore procedure requires PCD CE
+          to already be installed on this host.
+      when: not airctl_bin_stat.stat.exists
+
+    - name: Copy the backup archive to the VM
+      ansible.builtin.copy:
+        src: "{{ selected_backup }}"
+        dest: "{{ remote_archive_path }}"
+        owner: root
+        group: root
+        mode: "0600"
+
+    - name: Create the extraction directory
+      ansible.builtin.file:
+        path: "{{ remote_restore_dir }}"
+        state: directory
+        mode: "0700"
+
+    - name: Extract the archive
+      ansible.builtin.unarchive:
+        src: "{{ remote_archive_path }}"
+        dest: "{{ remote_restore_dir }}"
+        remote_src: true
+
+    - name: Find the extracted backup directory
+      ansible.builtin.find:
+        paths: "{{ remote_restore_dir }}"
+        file_type: directory
+        recurse: false
+      register: extracted_dirs
+
+    - name: Fail on unexpected archive layout
+      ansible.builtin.fail:
+        msg: "Expected exactly one top-level directory in the archive, found {{ extracted_dirs.matched }}."
+      when: extracted_dirs.matched != 1
+
+    - name: Set the restored backup directory
+      ansible.builtin.set_fact:
+        restored_backup_dir: "{{ extracted_dirs.files[0].path }}"
+
+    - name: Find the backup_* entry inside the restored backup directory
+      ansible.builtin.find:
+        paths: "{{ restored_backup_dir }}"
+        patterns: "backup_*"
+        file_type: any
+        recurse: false
+      register: restored_backup_entries
+
+    - name: Fail if the archive doesn't contain a backup_* entry
+      ansible.builtin.fail:
+        msg: >-
+          {{ restored_backup_dir }} doesn't contain a backup_* entry. Was
+          this archive produced by backup-pcd.yml?
+      when: restored_backup_entries.matched == 0
+
+    - name: Verify the saved config copies are present in the archive
+      ansible.builtin.stat:
+        path: "{{ restored_backup_dir }}/{{ item }}"
+      loop:
+        - airctl-config.yaml
+        - k3s.yaml
+      register: restored_config_checks
+
+    - name: Fail if the archive is missing a saved config copy
+      ansible.builtin.fail:
+        msg: "{{ restored_backup_dir }}/{{ item.item }} is missing from the archive."
+      loop: "{{ restored_config_checks.results }}"
+      when: not item.stat.exists
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Check whether the airctl config exists on this host
+      ansible.builtin.stat:
+        path: "{{ airctl_config }}"
+      register: live_airctl_config
+
+    - name: Fail if the airctl config is missing on this host
+      ansible.builtin.fail:
+        msg: >-
+          {{ airctl_config }} does not exist on this host. airctl restore
+          needs the host's own config in place first. If this host was
+          rebuilt, manually copy {{ restored_backup_dir }}/airctl-config.yaml
+          (and k3s.yaml, if the k3s kubeconfig is also missing) into place —
+          adjusting any host-specific values as needed — then re-run this
+          playbook.
+      when: not live_airctl_config.stat.exists
+
+    - name: Stop the CE management plane
+      ansible.builtin.command:
+        cmd: "{{ airctl_bin }} unconfigure-du --config {{ airctl_config }} --force"
+      changed_when: true
+
+    - name: Run airctl restore
+      ansible.builtin.command:
+        cmd: "{{ airctl_bin }} restore --config {{ airctl_config }} --backupdir {{ restored_backup_dir }}"
+      register: airctl_restore_result
+      changed_when: true
+
+    - name: Show airctl restore output
+      ansible.builtin.debug:
+        var: airctl_restore_result.stdout_lines
+
+    - name: Check airctl status
+      ansible.builtin.command:
+        cmd: "{{ airctl_bin }} status --config {{ airctl_config }}"
+      register: airctl_status_result
+      changed_when: false
+
+    - name: Show airctl status output
+      ansible.builtin.debug:
+        msg:
+          - "{{ airctl_status_result.stdout_lines }}"
+          - "Verify regions show Ready and ready services match desired services."
+
+    - name: Remove the archive from the VM
+      ansible.builtin.file:
+        path: "{{ remote_archive_path }}"
+        state: absent
+
+    - name: Remove the extraction directory from the VM
+      ansible.builtin.file:
+        path: "{{ remote_restore_dir }}"
+        state: absent

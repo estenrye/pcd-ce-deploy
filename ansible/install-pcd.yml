@@ -1,0 +1,110 @@
+---
+# Installs Platform9 Private Cloud Director Community Edition (PCD CE) on a
+# freshly provisioned VM, non-interactively, by fetching and running the
+# official go.pcd.run installer under sudo.
+#
+# This is the ansible equivalent of scripts/pcd-install-env.sh — same env
+# vars, same installer, same config symlink — just idempotent and run over
+# SSH instead of pasted into a root shell on the box.
+#
+# Prerequisites:
+#   - The VM exists and is reachable (see provision-vm.yml).
+#   - USER_CERT_PATH/USER_KEY_PATH (a cert+key for du_fqdn) already exist on
+#     the host — run certbot-pcd.yml first to provision these.
+#
+# The installer is skipped if airctl is already present on the host (i.e.
+# PCD CE is already installed); pass -e force_reinstall=true to re-run it
+# anyway.
+#
+# Usage:
+#   ansible-playbook -i inventory.ini install-pcd.yml
+
+- name: Install PCD Community Edition
+  hosts: pcd_vms
+  become: true
+  gather_facts: false
+
+  vars:
+    du_fqdn: pcd.rye.ninja
+    telemetry: false
+    skip_rating_prompt: true
+    accept_eula: true
+    should_cleanup: true
+    enable_k8s: false
+    user_cert_path: /etc/public-certs/pcd.pem
+    user_key_path: /etc/public-certs/pcd.key
+    skip_prechecks: true
+
+    installer_url: https://go.pcd.run
+    installer_path: /usr/bin/pcd-run.sh
+    install_log_path: /var/log/pcd-install.log
+
+    airctl_bin: /opt/pf9/airctl/airctl
+    airctl_config: /opt/pf9/airctl/conf/airctl-config.yaml
+    airctl_config_symlink: /root/airctl-config.yaml
+
+    force_reinstall: false
+
+  tasks:
+    - name: Check whether PCD CE is already installed
+      ansible.builtin.stat:
+        path: "{{ airctl_bin }}"
+      register: airctl_bin_stat
+
+    - name: Check that the TLS cert exists
+      ansible.builtin.stat:
+        path: "{{ user_cert_path }}"
+      register: user_cert_stat
+      when: force_reinstall or not airctl_bin_stat.stat.exists
+
+    - name: Check that the TLS key exists
+      ansible.builtin.stat:
+        path: "{{ user_key_path }}"
+      register: user_key_stat
+      when: force_reinstall or not airctl_bin_stat.stat.exists
+
+    - name: Fail if the TLS cert or key is missing
+      ansible.builtin.fail:
+        msg: >-
+          {{ user_cert_path }} and/or {{ user_key_path }} not found on this
+          host. Run certbot-pcd.yml first to provision them.
+      when: >-
+        (force_reinstall or not airctl_bin_stat.stat.exists) and
+        (not user_cert_stat.stat.exists or not user_key_stat.stat.exists)
+
+    - name: Download the PCD CE installer
+      ansible.builtin.get_url:
+        url: "{{ installer_url }}"
+        dest: "{{ installer_path }}"
+        mode: "0755"
+        force: true
+      when: force_reinstall or not airctl_bin_stat.stat.exists
+
+    - name: Run the PCD CE installer
+      ansible.builtin.shell:
+        cmd: "set -o pipefail; {{ installer_path }} | tee {{ install_log_path }}"
+        executable: /bin/bash
+      environment:
+        DU_FQDN: "{{ du_fqdn }}"
+        TELEMETRY: "{{ telemetry | string }}"
+        SKIP_RATING_PROMPT: "{{ skip_rating_prompt | string }}"
+        ACCEPT_EULA: "{{ accept_eula | string }}"
+        SHOULD_CLEANUP: "{{ should_cleanup | string }}"
+        ENABLE_K8S: "{{ enable_k8s | string }}"
+        USER_CERT_PATH: "{{ user_cert_path }}"
+        USER_KEY_PATH: "{{ user_key_path }}"
+        SKIP_PRECHECKS: "{{ skip_prechecks | string }}"
+      register: pcd_install_result
+      when: force_reinstall or not airctl_bin_stat.stat.exists
+
+    - name: Show installer output
+      ansible.builtin.debug:
+        var: pcd_install_result.stdout_lines
+      when: pcd_install_result is not skipped
+
+    - name: Symlink the airctl config into /root
+      ansible.builtin.file:
+        src: "{{ airctl_config }}"
+        dest: "{{ airctl_config_symlink }}"
+        state: link
+        force: true

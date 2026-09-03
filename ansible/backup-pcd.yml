@@ -1,0 +1,160 @@
+---
+# Backs up the PCD Community Edition management plane using airctl's
+# built-in backup command, then pulls the result down to the control node.
+#
+# Per Platform9's docs (backup-and-restore-ce), this only covers the CE
+# host's management plane — airctl-config.yaml, the k3s kubeconfig, and
+# whatever `airctl backup` itself captures. VM disks, external storage, and
+# anything outside the CE host are NOT included; those need their own
+# backup strategy.
+#
+# NOTE: the resulting archive contains sensitive secrets (per Platform9's
+# docs). It's written to backups/ next to this playbook — keep that out of
+# anything that syncs or gets committed anywhere.
+#
+# Usage:
+#   ansible-playbook -i inventory.ini backup-pcd.yml
+
+- name: Back up the PCD CE management plane
+  hosts: pcd_vms
+  become: true
+  gather_facts: true
+
+  vars:
+    airctl_bin: /opt/pf9/airctl/airctl
+    airctl_config: /opt/pf9/airctl/conf/airctl-config.yaml
+    k3s_config: /etc/rancher/k3s/k3s.yaml
+    backup_local_dir: "{{ playbook_dir }}/backups"
+    backup_name: "pcd-ce-backup-{{ ansible_date_time.iso8601_basic_short }}"
+    remote_work_dir: "/root/{{ backup_name }}"
+    remote_archive_path: "/root/{{ backup_name }}.tar.gz"
+
+  tasks:
+    - name: Check that airctl is present
+      ansible.builtin.stat:
+        path: "{{ airctl_bin }}"
+      register: airctl_bin_stat
+
+    - name: Fail if airctl is missing
+      ansible.builtin.fail:
+        msg: "{{ airctl_bin }} not found — is PCD CE installed on this host?"
+      when: not airctl_bin_stat.stat.exists
+
+    - name: Check that the airctl config exists
+      ansible.builtin.stat:
+        path: "{{ airctl_config }}"
+      register: airctl_config_stat
+
+    - name: Fail if the airctl config is missing
+      ansible.builtin.fail:
+        msg: "{{ airctl_config }} does not exist on this host."
+      when: not airctl_config_stat.stat.exists
+
+    - name: Check that the k3s kubeconfig exists
+      ansible.builtin.stat:
+        path: "{{ k3s_config }}"
+      register: k3s_config_stat
+
+    - name: Fail if the k3s kubeconfig is missing
+      ansible.builtin.fail:
+        msg: "{{ k3s_config }} does not exist on this host."
+      when: not k3s_config_stat.stat.exists
+
+    - name: Record any pre-existing backup_* entries in /tmp
+      ansible.builtin.find:
+        paths: /tmp
+        patterns: "backup_*"
+        file_type: any
+        recurse: false
+      register: pre_backup_tmp
+
+    - name: Run airctl backup
+      ansible.builtin.command:
+        cmd: "{{ airctl_bin }} backup --config {{ airctl_config }}"
+      register: airctl_backup_result
+      changed_when: true
+
+    - name: Show airctl backup output
+      ansible.builtin.debug:
+        var: airctl_backup_result.stdout_lines
+
+    - name: Find backup_* entries in /tmp after running the backup
+      ansible.builtin.find:
+        paths: /tmp
+        patterns: "backup_*"
+        file_type: any
+        recurse: false
+      register: post_backup_tmp
+
+    - name: Identify the newly created backup entry
+      ansible.builtin.set_fact:
+        new_backup_entries: "{{ post_backup_tmp.files | rejectattr('path', 'in', pre_backup_tmp.files | map(attribute='path') | list) | list }}"
+
+    - name: Fail if airctl backup didn't produce a new entry in /tmp
+      ansible.builtin.fail:
+        msg: "No new backup_* entry appeared in /tmp after running airctl backup."
+      when: new_backup_entries | length == 0
+
+    - name: Select the newest of the new backup entries
+      ansible.builtin.set_fact:
+        new_backup_entry: "{{ new_backup_entries | sort(attribute='mtime') | last }}"
+
+    - name: Create a working directory on the VM for this backup
+      ansible.builtin.file:
+        path: "{{ remote_work_dir }}"
+        state: directory
+        mode: "0700"
+
+    - name: Move the new backup entry into the working directory
+      ansible.builtin.command:
+        cmd: "mv {{ new_backup_entry.path }} {{ remote_work_dir }}/"
+
+    - name: Copy the airctl config into the working directory
+      ansible.builtin.copy:
+        src: "{{ airctl_config }}"
+        dest: "{{ remote_work_dir }}/airctl-config.yaml"
+        remote_src: true
+        mode: preserve
+
+    - name: Copy the k3s kubeconfig into the working directory
+      ansible.builtin.copy:
+        src: "{{ k3s_config }}"
+        dest: "{{ remote_work_dir }}/k3s.yaml"
+        remote_src: true
+        mode: preserve
+
+    - name: Secure backup file permissions
+      ansible.builtin.file:
+        path: "{{ remote_work_dir }}/{{ item }}"
+        mode: "0600"
+      loop:
+        - "{{ new_backup_entry.path | basename }}"
+        - airctl-config.yaml
+        - k3s.yaml
+
+    - name: Create the backup archive on the VM
+      ansible.builtin.command:
+        cmd: >-
+          tar -czpf {{ remote_archive_path }}
+          -C {{ remote_work_dir | dirname }}
+          {{ remote_work_dir | basename }}
+
+    - name: Fetch the archive to the control node
+      ansible.builtin.fetch:
+        src: "{{ remote_archive_path }}"
+        dest: "{{ backup_local_dir }}/{{ backup_name }}.tar.gz"
+        flat: true
+
+    - name: Remove the archive from the VM
+      ansible.builtin.file:
+        path: "{{ remote_archive_path }}"
+        state: absent
+
+    - name: Remove the working directory from the VM
+      ansible.builtin.file:
+        path: "{{ remote_work_dir }}"
+        state: absent
+
+    - name: Report backup location
+      ansible.builtin.debug:
+        msg: "Backup saved to {{ backup_local_dir }}/{{ backup_name }}.tar.gz"
