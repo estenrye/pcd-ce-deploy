@@ -1,3 +1,21 @@
+resource "pcd_blockstorage_volume_type" "image_library" {
+  name = "image_library"
+  description = "Glance (image library) backend volume type for the PCD cluster."
+  is_public = true
+  extra_specs = {
+    volume_backend_name = var.image_library_backend_name
+  }
+}
+
+resource "pcd_blockstorage_volume_type" "volume_storage" {
+  name = "volume_storage"
+  description = "Compute volumes (block storage) backend volume type for the PCD cluster."
+  is_public = true
+  extra_specs = {
+    volume_backend_name = var.compute_volumes_backend_name
+  }
+}
+
 # PCD supports a single blueprint per region, and the go.pcd.run installer
 # (ansible/install-pcd.yml) already created one. Import it before the first
 # apply so Tofu adopts the existing blueprint instead of trying to create a
