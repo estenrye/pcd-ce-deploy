@@ -1,6 +1,6 @@
-resource "truenas_dataset" "cinder" {
+resource "truenas_dataset" "nova" {
   pool = var.pool_name
-  name = var.cinder_dataset_name
+  name = var.nova_dataset_name
 
   compression = "LZ4"
   atime       = "OFF"

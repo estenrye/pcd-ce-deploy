@@ -1,0 +1,18 @@
+# Copy to terraform.tfvars and fill in — terraform.tfvars is gitignored.
+# Every variable below has a default in variables.tf; only override what
+# doesn't match your environment. onepassword_account is the one you
+# actually need to set (or export OP_ACCOUNT instead).
+
+# Account name/ID as shown in the 1Password desktop app's sidebar. Leave
+# unset here to source it from OP_ACCOUNT instead.
+onepassword_account = "ryefamily.1password.com"
+
+# Uncomment to override the defaults in variables.tf:
+# onepassword_vault      = "Home_Lab"
+# onepassword_item_title = "PCD Community - pcd.rye.ninja"
+# cluster_name           = "pcd-ce-lab"
+# dns_domain_name        = "usmnblm01.rye.ninja."
+
+# From ../tofu-truenas's outputs:
+# compute_volumes_nfs_export = "10.45.60.254:/mnt/flash-pool/pcd-ce-nova"
+# image_library_nfs_export   = "10.45.60.254:/mnt/flash-pool/pcd-ce-glance"
