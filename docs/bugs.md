@@ -6,4 +6,4 @@ Tracking the following bugs in the PCD Community Edition deployment:
 - PCD-9800: PCD CE installer does not expose flag to enable IPV4/IPV6 dual stack networking.
 - PCD-9802: pcdctl doesn't recognize systemd-timesyncd as valid NTP
 - PCD-9803: pcd TF provider does not handle changes to `pcd_host_config` network labels
-- PCD-9818: PCD TF provider waits synchronously for `pcd_host_cluster_role` to complete.
+- PCD-9818: PCD TF Provider fails unrecoverably for `pcd_host_cluster_role` to complete when `wait_until_converged` is `true`

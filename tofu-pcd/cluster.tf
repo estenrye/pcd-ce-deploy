@@ -20,7 +20,7 @@ resource "pcd_host_cluster_role" "hypervisor" {
 
   # Blocks until the host reports role_status = ok, so it's actually
   # schedulable by the time `tofu apply` finishes.
-  wait_until_converged = true
+  wait_until_converged = false
 
   depends_on = [pcd_host_config_assignment.pcd-ce-hyp-01]
 }
