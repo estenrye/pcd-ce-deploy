@@ -10,22 +10,18 @@
 # foo.rye.ninja, ...) but NOT the bare apex rye.ninja itself — add
 # `-d rye.ninja` too if that's also needed.
 #
-# The Cloudflare API token is pulled from 1Password at playbook-run time by
-# running `op read` as a local (delegate_to: localhost) task on the control
-# node — the token is never written to disk here or displayed in playbook
-# output (both the read and the credentials-file task are no_log), only
-# sent over SSH into the file certbot reads it from on the VM.
-#
-# (Note: the community.general.onepassword lookup plugin doesn't work here —
-# it only recognizes legacy `op signin` CLI sessions, not the 1Password
-# desktop app's CLI integration this account uses. Plain `op read` does.)
+# The Cloudflare API token is pulled from 1Password at playbook-run time via
+# the community.general.onepassword lookup plugin, which runs locally on the
+# control node — the token is never written to disk here or displayed in
+# playbook output (both the lookup task and the credentials-file task are
+# no_log), only sent over SSH into the file certbot reads it from on the VM.
 #
 # Requires on the control node (this machine):
 #   - `op` CLI with desktop app integration enabled and unlocked
 #     (Settings → Developer → "Integrate with 1Password CLI")
 #
 # Usage:
-#   ansible-playbook -i inventory.ini certbot-pcd.yml
+#   ansible-playbook -i inventory.yml certbot-pcd.yml
 
 - name: Deploy certbot and issue a DNS-01 wildcard certificate for *.rye.ninja
   hosts: pcd_vms
@@ -49,7 +45,9 @@
 
     cf_credentials_path: /etc/letsencrypt/cloudflare.ini
     onepassword_account: ryefamily.1password.com
-    onepassword_secret_ref: "op://controlplane/cloudflare-api-token/credential"
+    onepassword_vault: controlplane
+    onepassword_item_title: cloudflare-api-token
+    onepassword_field: credential
 
   tasks:
     - name: Install certbot and the Cloudflare DNS plugin
@@ -76,13 +74,10 @@
         group: root
         mode: "0755"
 
-    - name: Read the Cloudflare API token from 1Password (control node)
-      ansible.builtin.command:
-        cmd: "op read {{ onepassword_secret_ref }} --account {{ onepassword_account }}"
-      delegate_to: localhost
-      become: false
-      register: cf_token_result
-      changed_when: false
+    - name: Look up the Cloudflare API token from 1Password
+      ansible.builtin.set_fact:
+        cf_token_result:
+          stdout: "{{ lookup('community.general.onepassword', onepassword_item_title, field=onepassword_field, vault=onepassword_vault, account_id=onepassword_account) }}"
       no_log: true
 
     - name: Write the Cloudflare API token credentials file

@@ -17,7 +17,7 @@
 # anyway.
 #
 # Usage:
-#   ansible-playbook -i inventory.ini install-pcd.yml
+#   ansible-playbook -i inventory.yml install-pcd.yml
 
 - name: Install PCD Community Edition
   hosts: pcd_vms

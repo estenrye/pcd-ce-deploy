@@ -5,14 +5,14 @@
 #
 # By default restores the most recent archive in backups/. To restore a
 # specific one instead:
-#   ansible-playbook -i inventory.ini restore-certbot.yml -e backup_file=backups/pcd-ce-certbot-20260901T164528.tar.gz
+#   ansible-playbook -i inventory.yml restore-certbot.yml -e backup_file=backups/pcd-ce-certbot-20260901T164528.tar.gz
 #
 # Refuses to run if /etc/letsencrypt already exists on the target, so it
 # won't clobber a live setup — this is meant for a freshly (re)provisioned
 # VM.
 #
 # Usage:
-#   ansible-playbook -i inventory.ini restore-certbot.yml
+#   ansible-playbook -i inventory.yml restore-certbot.yml
 
 - name: Restore certbot state onto pcd-ce
   hosts: pcd_vms

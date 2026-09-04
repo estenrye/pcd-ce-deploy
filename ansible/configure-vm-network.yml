@@ -1,0 +1,71 @@
+---
+# Re-renders templates/network-config.yml.j2 (the same template used by
+# provision-vm.yml's cloud-init seed) and applies it as netplan directly on
+# an already-running pcd_vms host, via `netplan apply` over SSH.
+#
+# provision-vm.yml only writes this config once, via cloud-init, at VM
+# creation time — there's no ongoing mechanism to push routing/addressing
+# changes to a VM after it's up. This playbook is that mechanism: run it
+# whenever templates/network-config.yml.j2 (or the vars below) change and
+# the running VM needs to pick up the difference without a rebuild.
+#
+# Keep the vars below in sync with provision-vm.yml's defaults for the same
+# vm_name — they must describe the same VM.
+#
+# Usage:
+#   ansible-playbook -i inventory.yml configure-vm-network.yml
+
+- name: Apply rendered netplan config to a running pcd_vms host
+  hosts: pcd_vms
+  become: true
+  gather_facts: false
+
+  vars:
+    vm_mac_address: "52:54:00:45:45:45"
+    vm_ipv4_address: "10.45.45.45/16"
+    vm_ipv4_gateway: "10.45.0.1"
+    vm_ipv6_networks:
+      - address: "fd97:45c2:b3a1:100::dead/64"
+        prefix: "fd97:45c2:b3a1:100::/64"
+        gateway: "fd97:45c2:b3a1:100::1"
+        table: 100
+      - address: "2607:3640:1064:270::dead/64"
+        prefix: "2607:3640:1064:270::/64"
+        gateway: "2607:3640:1064:270::1"
+        table: 200
+    vm_dns_servers:
+      - "10.45.0.1"
+      - "1.1.1.1"
+
+    netplan_dest: /etc/netplan/50-pcd-vm.yaml
+
+  tasks:
+    - name: Render network-config.yml.j2 as a netplan file with a network wrapper
+      ansible.builtin.copy:
+        dest: "{{ netplan_dest }}"
+        content: |
+          network:
+          {{ lookup('ansible.builtin.template', 'templates/network-config.yml.j2') | indent(2, first=true) }}
+        owner: root
+        group: root
+        mode: "0600"
+      notify: Apply netplan
+
+    - name: Flush handlers so netplan is applied before continuing
+      ansible.builtin.meta: flush_handlers
+
+    - name: Show resulting IPv6 rules and routes
+      ansible.builtin.command: "{{ item }}"
+      loop:
+        - ip -6 rule show
+        - ip -6 route show table main default
+      register: netplan_check
+      changed_when: false
+
+    - name: Display IPv6 routing state
+      ansible.builtin.debug:
+        var: netplan_check.results
+
+  handlers:
+    - name: Apply netplan
+      ansible.builtin.command: netplan apply

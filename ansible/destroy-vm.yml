@@ -4,7 +4,7 @@
 # pool, and cleans up the cloud-init seed ISO / working files on the host.
 #
 # Usage:
-#   ansible-playbook -i inventory.ini destroy-vm.yml -e vm_name=pcd-ce
+#   ansible-playbook -i inventory.yml destroy-vm.yml -e vm_name=pcd-ce
 #
 # Safe to re-run: every step tolerates the VM/volume/files already being gone.
 

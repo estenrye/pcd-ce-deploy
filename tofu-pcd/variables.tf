@@ -97,10 +97,11 @@ variable "vm_storage" {
 #   type        = string
 # }
 
-# variable "host_mgmt_interface" {
-#   description = "Name of the NIC on the host that carries management traffic (e.g. from `ip a` on the host)."
-#   type        = string
-# }
+variable "host_mgmt_interface" {
+  description = "Name of the NIC on the host that carries management traffic (e.g. from `ip a` on the host)."
+  type        = string
+  default     = "bond0.0"
+}
 
 variable "image_library_backend_name" {
   description = "Name of the Glance backend defined in storage_backends_json, and the value pcd_host_cluster_role.storage.backends references."

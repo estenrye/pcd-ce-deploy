@@ -24,6 +24,12 @@ ethernets:
       - from: {{ net.prefix }}
         table: {{ net.table }}
 {% endfor %}
+      # Catch-all fallback so traffic sourced from an address outside both
+      # prefixes above (e.g. a locally-originated connection before the
+      # kernel has picked a source address) still resolves a default route,
+      # instead of relying on a transient RA-learned route in the main
+      # table that disappears once accept_ra is disabled.
+      - table: {{ vm_ipv6_networks[-1].table }}
     nameservers:
       addresses:
 {% for ns in vm_dns_servers %}
