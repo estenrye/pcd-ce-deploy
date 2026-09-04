@@ -14,28 +14,26 @@ resource "pcd_cluster" "main" {
 
 # The MS-A2 head node, onboarded as the (currently only) hypervisor.
 resource "pcd_host_cluster_role" "hypervisor" {
-  host_id      = var.host_id_pcd-ce-hyp-01
+  for_each = var.host_cluster_hypervisor_role_mappings
+  host_id      = pcd_host_config_assignment.default[each.key].host_id
   role         = "hypervisor"
-  host_cluster = pcd_cluster.main.name
+  host_cluster = each.value
 
   # Blocks until the host reports role_status = ok, so it's actually
   # schedulable by the time `tofu apply` finishes.
   wait_until_converged = false
-
-  depends_on = [pcd_host_config_assignment.pcd-ce-hyp-01]
 }
 
 resource "pcd_host_cluster_role" "image_library" {
-  host_id = var.host_id_pcd-ce-hyp-01
-  role    = "image-library"
+  for_each = var.host_cluster_image_library_role_mappings
+  host_id      = pcd_host_config_assignment.default[each.key].host_id
+  role         = "image-library"
 
-  depends_on = [pcd_host_config_assignment.pcd-ce-hyp-01]
 }
 
 resource "pcd_host_cluster_role" "storage" {
-  host_id  = var.host_id_pcd-ce-hyp-01
+  for_each = var.host_cluster_storage_role_mappings
+  host_id  = pcd_host_config_assignment.default[each.key].host_id
   role     = "persistent-storage"
   backends = [var.compute_volumes_backend_name]
-
-  depends_on = [pcd_host_config_assignment.pcd-ce-hyp-01]
 }

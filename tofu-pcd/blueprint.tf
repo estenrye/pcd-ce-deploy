@@ -35,7 +35,7 @@ resource "pcd_cluster_blueprint" "main" {
     vnid_range    = var.vn_id_range
   }
 
-  vm_storage              = "${var.compute_volumes_nfs_mount_point_base}/instances"
+  vm_storage              = "${var.storage_backends_json[var.compute_volumes_backend_name][var.compute_volumes_configuration_name].config.nfs_mount_point_base}/instances"
   instance_shared_storage = true
 
   image_library_storage        = "image_library"
@@ -50,32 +50,5 @@ resource "pcd_cluster_blueprint" "main" {
   # Configuration Name = var.cinder_backend_name, save it there, then
   # `tofu import pcd_cluster_blueprint.main <name>` again to pull in the
   # real JSON PCD stored and replace this block with it.
-  storage_backends_json = jsonencode({
-    (var.image_library_backend_name) = {
-      (var.image_library_configuration_name) = {
-        config = {
-          nas_secure_file_operations  = false
-          nas_secure_file_permissions = false
-          nfs_mount_point_base        = var.image_library_nfs_mount_point_base
-          nfs_mount_points            = var.image_library_nfs_export
-          nfs_shares_config           = "/opt/pf9/etc/pf9-cindervolume-base/conf.d/nfs_shares_${var.image_library_configuration_name}"
-          nfs_snapshot_support        = true
-        },
-        driver = "NFS"
-      },
-    },
-    (var.compute_volumes_backend_name) = {
-      (var.compute_volumes_configuration_name) = {
-        config = {
-          nas_secure_file_operations  = false
-          nas_secure_file_permissions = false
-          nfs_mount_point_base        = var.compute_volumes_nfs_mount_point_base
-          nfs_mount_points            = var.compute_volumes_nfs_export
-          nfs_shares_config           = "/opt/pf9/etc/pf9-cindervolume-base/conf.d/nfs_shares_${var.compute_volumes_configuration_name}"
-          nfs_snapshot_support        = true
-        },
-        driver = "NFS"
-      },
-    },
-  })
+  storage_backends_json = jsonencode(var.storage_backends_json)
 }

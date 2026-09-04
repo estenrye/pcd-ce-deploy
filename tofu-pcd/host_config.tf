@@ -1,23 +1,24 @@
 # Maps traffic types to NICs on the host. This lab runs everything over a
 # single interface (see README.md hardware notes: MS-A2 head node), so every
 # traffic type shares host_mgmt_interface.
-resource "pcd_host_config" "dell_r610" {
-  name = "hc-${pcd_cluster_blueprint.main.name}"
-  cluster_name = pcd_cluster_blueprint.main.name
+resource "pcd_host_config" "default" {
+  for_each = var.host_configs
 
-  mgmt_interface           = var.host_mgmt_interface
-  vm_console_interface     = var.host_mgmt_interface
-  tunneling_interface      = var.host_mgmt_interface
-  imagelib_interface       = var.host_mgmt_interface
-  live_migration_interface = var.host_mgmt_interface
-  host_liveness_interface  = var.host_mgmt_interface
+  name = each.key
+  cluster_name = each.value.cluster_name
 
-  network_labels = {
-    physnet1 = var.host_mgmt_interface
-  }
+  mgmt_interface           = each.value.mgmt_interface
+  vm_console_interface     = each.value.vm_console_interface
+  tunneling_interface      = each.value.tunneling_interface
+  imagelib_interface       = each.value.imagelib_interface
+  live_migration_interface = each.value.live_migration_interface
+  host_liveness_interface  = each.value.host_liveness_interface
+
+  network_labels = each.value.network_labels
 }
 
-resource "pcd_host_config_assignment" "pcd-ce-hyp-01" {
-  host_id        = var.host_id_pcd-ce-hyp-01
-  host_config_id = pcd_host_config.dell_r610.id
+resource "pcd_host_config_assignment" "default" {
+  for_each = var.host_config_mappings
+  host_id        = each.value.id
+  host_config_id = pcd_host_config.default[each.value.host_config_name].id
 }
