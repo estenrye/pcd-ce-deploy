@@ -8,7 +8,7 @@
 # libvirt/qemu/zfs tooling and image files all live there.
 #
 # Usage:
-#   ansible-playbook -i inventory.ini provision-vm.yml -e vm_name=myvm
+#   ansible-playbook -i inventory.yml provision-vm.yml -e vm_name=myvm
 #
 # Edit the defaults below (or override with -e) for name, sizing, network,
 # and the SSH key that gets seeded into the guest's admin account.

@@ -16,7 +16,7 @@
 # or gets committed anywhere.
 #
 # Usage:
-#   ansible-playbook -i inventory.ini backup-certbot.yml
+#   ansible-playbook -i inventory.yml backup-certbot.yml
 
 - name: Back up certbot state from pcd-ce
   hosts: pcd_vms

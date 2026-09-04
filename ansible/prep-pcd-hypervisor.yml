@@ -1,0 +1,239 @@
+- name: Install PCD Community Edition
+  hosts: pcd_hypervisors
+  become: true
+  gather_facts: false
+
+  vars:
+    pcdctl_setup_url: https://pcdctl.s3.us-west-2.amazonaws.com/pcdctl-setup
+    pcdctl_setup_path: /usr/bin/pcdctl-setup.sh
+    pcdctl_du_url: https://pcd.rye.ninja
+    pcdctl_role: Infra
+    pcdctl_account_type: service
+
+    onepassword_account: ryefamily.1password.com
+    onepassword_vault: Home_Lab
+    onepassword_item_title: "PCD Community - pcd.rye.ninja"
+
+    vm_ssh_public_keys:
+      - "ecdsa-sha2-nistp521 AAAAE2VjZHNhLXNoYTItbmlzdHA1MjEAAAAIbmlzdHA1MjEAAACFBABRrM38w/r7E5eHrD5eeQ0tU5sNlpseYO3s0kKKf0tbYIOsGW52ofUBzzx2/3PoAANOX/rZIwk6DmmiQxPizKeF6QCZuHrzknDHNHtg2JNWlsh24zNI9OjX8e+bB1oPE8y/PQPXPA8hrf7RZhU0wb3Ld4I6tOpcdiimlOI4sYmPgITmKA== esten@MacBook-Pro"
+      - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDLOOcdudgGgvUIsFxIDY6/uq9daQ7kmvSmRydv8KiqOXSUb5NH3YnnYpqcl7Le8T9U5++I71S5kRSxgsq+CY8ZmdrG522Rxy1/ixl0REKSKexZ7h/iue6ve0WxE9tS7Cj9ubug4/d1l6cFEdIp1KyzPdMRJtW9LB650t/mpe17LBic39XOcHfWdpYqCmW4Wrg9D1nO/mO+Gx1LLwfii770aZ6lHIxsaVj1FwmqKdlQswco10KPfB2WvzBxSaUhV4+xUV2uJ9aXshQPUx49flqiPgwQn7jiQxkOdkGb0X63WJjKCImGn9uJ5ms+3MVoLPeRYucKZvDxqJsYieV1Zy8uDODoqrJHPaXnixVVMZFNtKpvHDYgEoURqE2i+T/zclOdmLcSe5oYtD90/MGcKTuScZaqv5UOYfGK/y9Rqhleofznx6QqHPFVmN8HDgJje8EVwWfob3SbzfP3fYa60OJF0nfjxCBGCHZa8ZFZ47/qmpJsgWHgj6tlaYJw532lG4gCToy22PvTLmn7RQ8eB4IDmJWepezElkeH4KuQoM7o1UEPEdMkbeH1lzALj2sgGd3AnYhJxODLhlRULYdsA/dFp+bApB1YXf64fPg2ksPJdSQ7z/DIAHa1W0u6YhqVHRtaPq5s1zHzFKyDv3SClXGskExlFWz73P8l5nJkEqZfVw== esten@platform9.com"
+
+  tasks:
+    - name: Check hardware virtualization extensions are enabled
+      ansible.builtin.command: grep -E 'svm|vmx' /proc/cpuinfo
+      register: virt_ext_check
+      changed_when: false
+      failed_when: false
+
+    - name: Fail if hardware virtualization extensions are not enabled
+      ansible.builtin.fail:
+        msg: >-
+          No vmx/svm flags found in /proc/cpuinfo. Enable VT-x (Intel) or
+          AMD-V (AMD) virtualization extensions in BIOS before continuing.
+      when: virt_ext_check.rc != 0
+
+    - name: Get current system hostname
+      ansible.builtin.command: hostname
+      register: current_hostname
+      changed_when: false
+
+    - name: Verify hostname contains a non-numeric character
+      ansible.builtin.assert:
+        that: current_hostname.stdout is regex('[a-zA-Z]')
+        fail_msg: >-
+          PCD requires the hostname to contain at least one non-numeric
+          character (current: {{ current_hostname.stdout }}).
+        success_msg: "Hostname {{ current_hostname.stdout }} satisfies PCD's requirement."
+
+    - name: Check system clock synchronization
+      ansible.builtin.command: timedatectl show -p NTPSynchronized --value
+      register: ntp_sync_check
+      changed_when: false
+
+    - name: Fail if the system clock is not NTP-synchronized
+      ansible.builtin.fail:
+        msg: >-
+          System clock is not synchronized. Ensure chronyd, ntpd, or
+          systemd-timesyncd is running and has completed sync.
+      when: ntp_sync_check.stdout | trim != 'yes'
+
+    - name: Set authorized SSH keys for {{ ansible_user }}
+      ansible.posix.authorized_key:
+        user: "{{ ansible_user }}"
+        key: "{{ vm_ssh_public_keys | join('\n') }}"
+        exclusive: true
+
+    - name: Grant {{ ansible_user }} passwordless sudo
+      ansible.builtin.copy:
+        dest: "/etc/sudoers.d/90-{{ ansible_user }}"
+        content: "{{ ansible_user }} ALL=(ALL) NOPASSWD:ALL\n"
+        owner: root
+        group: root
+        mode: "0440"
+        validate: "visudo -cf %s"
+
+    - name: Merge group and host netplan configuration
+      ansible.builtin.set_fact:
+        netplan_combined: "{{ netplan | combine(netplan_overrides | default({}), recursive=true) }}"
+
+    - name: Debug netplan configuration for {{ inventory_hostname }}
+      ansible.builtin.debug:
+        var: netplan_combined
+
+    - name: Remove stale installer-generated netplan config
+      ansible.builtin.file:
+        path: /etc/netplan/50-cloud-init.yaml
+        state: absent
+      notify: Apply netplan
+
+    - name: Apply combined netplan configuration
+      ansible.builtin.copy:
+        dest: /etc/netplan/01-pcd.yaml
+        content: "{{ netplan_combined | to_nice_yaml(indent=2) }}"
+        owner: root
+        group: root
+        mode: "0600"
+      notify: Apply netplan
+
+    - name: Flush handlers so netplan is applied before continuing
+      ansible.builtin.meta: flush_handlers
+
+    - name: Check for a leftover bond0.0 interface
+      ansible.builtin.stat:
+        path: /sys/class/net/bond0.0
+      register: bond0_0_stat
+
+    - name: Remove leftover bond0.0 interface no longer defined in netplan
+      ansible.builtin.command: ip link delete bond0.0
+      when: bond0_0_stat.stat.exists
+
+    - name: Verify DNS resolution is working
+      ansible.builtin.command: getent hosts {{ pcdctl_du_url | urlsplit('hostname') }}
+      register: dns_check
+      until: dns_check.rc == 0
+      retries: 3
+      delay: 5
+      changed_when: false
+
+    - name: Check ufw status
+      ansible.builtin.command: ufw status
+      register: ufw_status
+      changed_when: false
+      failed_when: false
+
+    - name: Open PCD-required ports (6080 VNC console, 9494 Image Library)
+      community.general.ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop:
+        - "6080"
+        - "9494"
+      when: "'Status: active' in ufw_status.stdout"
+
+    - name: Discover disks currently used by LVM physical volumes
+      ansible.builtin.command: pvs --noheadings -o pv_name
+      register: lvm_pv_list
+      changed_when: false
+
+    - name: Derive the set of whole-disk devices backing LVM
+      ansible.builtin.set_fact:
+        lvm_filter_disks: >-
+          {{ lvm_pv_list.stdout_lines
+             | map('trim')
+             | map('regex_replace', '^(/dev/[a-z]+)[0-9]*$', '\1')
+             | unique
+             | sort }}
+
+    - name: Render the LVM filter expression
+      ansible.builtin.set_fact:
+        lvm_filter_line: >-
+          [{% for d in lvm_filter_disks %}"a|^{{ d }}|", {% endfor %}"r|.*|"]
+
+    - name: Restrict LVM device scanning to known disks (filter)
+      ansible.builtin.lineinfile:
+        path: /etc/lvm/lvm.conf
+        regexp: "^\\s*filter\\s*="
+        insertafter: "^devices \\{"
+        line: "\tfilter = {{ lvm_filter_line }}"
+
+    - name: Restrict LVM device scanning to known disks (global_filter)
+      ansible.builtin.lineinfile:
+        path: /etc/lvm/lvm.conf
+        regexp: "^\\s*global_filter\\s*="
+        insertafter: "^devices \\{"
+        line: "\tglobal_filter = {{ lvm_filter_line }}"
+
+    - name: Validate LVM filter configuration
+      ansible.builtin.command: lvm dumpconfig devices
+      register: lvm_filter_check
+      changed_when: false
+
+    - name: Show LVM filter configuration
+      ansible.builtin.debug:
+        var: lvm_filter_check.stdout_lines
+
+    - name: Check whether pcdctl is already installed
+      ansible.builtin.command: command -v pcdctl
+      register: pcdctl_bin_check
+      changed_when: false
+      failed_when: false
+
+    - name: Download the pcdctl setup script
+      ansible.builtin.get_url:
+        url: "{{ pcdctl_setup_url }}"
+        dest: "{{ pcdctl_setup_path }}"
+        mode: "0755"
+        force: true
+      when: pcdctl_bin_check.rc != 0
+
+    - name: Run the pcdctl setup script
+      ansible.builtin.command: "{{ pcdctl_setup_path }}"
+      when: pcdctl_bin_check.rc != 0
+
+    - name: Look up PCD admin credentials from 1Password
+      ansible.builtin.set_fact:
+        pcdctl_admin_email: "{{ lookup('community.general.onepassword', onepassword_item_title, field='username', vault=onepassword_vault, account_id=onepassword_account) }}"
+        pcdctl_admin_password: "{{ lookup('community.general.onepassword', onepassword_item_title, field='password', vault=onepassword_vault, account_id=onepassword_account) }}"
+      no_log: true
+
+    - name: Configure pcdctl
+      ansible.builtin.command: >-
+        pcdctl config set -u {{ pcdctl_du_url }}
+        -e {{ pcdctl_admin_email }}
+        -p {{ pcdctl_admin_password }}
+        -r {{ pcdctl_role }} -t {{ pcdctl_account_type }}
+        --no-prompt --verbose
+      register: pcdctl_configure_result
+      changed_when: true
+      failed_when: false
+      no_log: true
+
+    - name: Show pcdctl config set output if it failed
+      ansible.builtin.debug:
+        msg: "{{ pcdctl_configure_result.stderr_lines + pcdctl_configure_result.stdout_lines }}"
+      when: pcdctl_configure_result.rc != 0
+
+    - name: Fail if pcdctl config set did not succeed
+      ansible.builtin.fail:
+        msg: "pcdctl config set failed (rc={{ pcdctl_configure_result.rc }}). See output above."
+      when: pcdctl_configure_result.rc != 0
+
+    - name: Prepare the hypervisor node for PCD onboarding
+      ansible.builtin.command: pcdctl prep-node --no-prompt --skip-ntp
+      register: pcdctl_prep_node_result
+      changed_when: true
+      failed_when: false
+
+    - name: Show pcdctl prep-node output
+      ansible.builtin.debug:
+        var: pcdctl_prep_node_result.stdout_lines
+
+    - name: Fail if pcdctl prep-node did not succeed
+      ansible.builtin.fail:
+        msg: "pcdctl prep-node failed (rc={{ pcdctl_prep_node_result.rc }}). See output above."
+      when: pcdctl_prep_node_result.rc != 0
+
+  handlers:
+    - name: Apply netplan
+      ansible.builtin.command: netplan apply

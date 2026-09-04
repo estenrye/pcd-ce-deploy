@@ -13,7 +13,7 @@
 # anything that syncs or gets committed anywhere.
 #
 # Usage:
-#   ansible-playbook -i inventory.ini backup-pcd.yml
+#   ansible-playbook -i inventory.yml backup-pcd.yml
 
 - name: Back up the PCD CE management plane
   hosts: pcd_vms

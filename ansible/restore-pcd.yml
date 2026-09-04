@@ -18,10 +18,10 @@
 #
 # By default restores the most recent archive in backups/. To restore a
 # specific one instead:
-#   ansible-playbook -i inventory.ini restore-pcd.yml -e backup_file=backups/pcd-ce-backup-20260901T164528.tar.gz
+#   ansible-playbook -i inventory.yml restore-pcd.yml -e backup_file=backups/pcd-ce-backup-20260901T164528.tar.gz
 #
 # Usage:
-#   ansible-playbook -i inventory.ini restore-pcd.yml
+#   ansible-playbook -i inventory.yml restore-pcd.yml
 
 - name: Restore the PCD CE management plane
   hosts: pcd_vms

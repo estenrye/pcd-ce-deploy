@@ -1,10 +1,16 @@
-# resource "pcd_cluster" "main" {
-#   name = var.cluster_name
+resource "pcd_cluster" "main" {
+  name = var.cluster_name
 
-#   vm_high_availability = {
-#     enabled = false # single host — nowhere to fail a VM over to
-#   }
-# }
+  auto_resource_rebalancing = {
+    enabled = true
+    rebalancing_frequency_mins = 20
+    rebalancing_strategy = "vm_workload_consolidation"
+  }
+
+  vm_high_availability = {
+    enabled = false # single host — nowhere to fail a VM over to
+  }
+}
 
 # # The MS-A2 head node, onboarded as the (currently only) hypervisor.
 # resource "pcd_host_cluster_role" "hypervisor" {
