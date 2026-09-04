@@ -1,7 +1,7 @@
 # Maps traffic types to NICs on the host. This lab runs everything over a
 # single interface (see README.md hardware notes: MS-A2 head node), so every
 # traffic type shares host_mgmt_interface.
-resource "pcd_host_config" "main" {
+resource "pcd_host_config" "dell_r610" {
   name = "hc-${pcd_cluster_blueprint.main.name}"
   cluster_name = pcd_cluster_blueprint.main.name
 
@@ -17,7 +17,7 @@ resource "pcd_host_config" "main" {
   }
 }
 
-# resource "pcd_host_config_assignment" "main" {
-#   host_id        = var.host_id
-#   host_config_id = pcd_host_config.main.id
-# }
+resource "pcd_host_config_assignment" "pcd-ce-hyp-01" {
+  host_id        = var.host_id_pcd-ce-hyp-01
+  host_config_id = pcd_host_config.dell_r610.id
+}

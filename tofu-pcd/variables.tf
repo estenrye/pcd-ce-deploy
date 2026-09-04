@@ -88,19 +88,20 @@ variable "vm_storage" {
   default     = "/opt/pf9/etc/pf9-cindervolume-base/volumes/nova/instances"
 }
 
-# variable "host_id" {
-#   description = <<-EOT
-#     resmgr UUID of the MS-A2 host, as shown in the PCD UI under
-#     Infrastructure > Hosts (click the host — the UUID is in its detail
-#     panel/URL).
-#   EOT
-#   type        = string
-# }
+variable "host_id_pcd-ce-hyp-01" {
+  description = <<-EOT
+    resmgr UUID of the pcd-ce-hyp-01 host, as shown in the PCD UI under
+    Infrastructure > Hosts (click the host — the UUID is in its detail
+    panel/URL).
+  EOT
+  type        = string
+  default     = "c0de6fb7-4ca6-49f4-a3f7-e9799e5e1816"
+}
 
 variable "host_mgmt_interface" {
   description = "Name of the NIC on the host that carries management traffic (e.g. from `ip a` on the host)."
   type        = string
-  default     = "bond0.0"
+  default     = "bond0"
 }
 
 variable "image_library_backend_name" {
