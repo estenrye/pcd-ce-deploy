@@ -12,7 +12,6 @@ resource "pcd_cluster" "main" {
   }
 }
 
-# The MS-A2 head node, onboarded as the (currently only) hypervisor.
 resource "pcd_host_cluster_role" "hypervisor" {
   for_each = var.host_cluster_hypervisor_role_mappings
   host_id      = pcd_host_config_assignment.default[each.key].host_id
@@ -28,12 +27,11 @@ resource "pcd_host_cluster_role" "image_library" {
   for_each = var.host_cluster_image_library_role_mappings
   host_id      = pcd_host_config_assignment.default[each.key].host_id
   role         = "image-library"
-
 }
 
 resource "pcd_host_cluster_role" "storage" {
   for_each = var.host_cluster_storage_role_mappings
   host_id  = pcd_host_config_assignment.default[each.key].host_id
   role     = "persistent-storage"
-  backends = [var.compute_volumes_backend_name]
+  backends = [var.compute_volumes_configuration_name, var.image_library_configuration_name]
 }
