@@ -1,0 +1,131 @@
+---
+# Installs python3/pip and Platform9's support-locker OpenStack CLI clients
+# (aodhclient, gnocchiclient, python-openstackclient, etc.) on the PCD CE VM.
+#
+# Ubuntu 24.04 marks the system Python "externally managed" (PEP 668) and
+# refuses a plain `pip install`, so the clients go into a dedicated
+# virtualenv instead. Each installed console script is then symlinked into
+# {{ openstack_clients_bin_dir }} so the CLIs (openstack, nova, neutron,
+# etc.) land on PATH without touching apt-owned packages.
+#
+# Finally, the admin credentials are pulled live from `airctl get-creds`
+# (rather than a manually-maintained 1Password item) and written to an
+# openstackrc file so the installed CLIs are ready to use as soon as the
+# playbook finishes -- e.g. `source /root/openstackrc && openstack server list`.
+#
+# Usage:
+#   ansible-playbook -i inventory.yml install-openstack-clients.yml
+
+- name: Install OpenStack CLI clients
+  hosts: pcd_vms
+  become: true
+  gather_facts: false
+
+  vars:
+    openstack_clients_requirements_url: https://raw.githubusercontent.com/platform9/support-locker/master/openstack-clients/requirements.txt
+    openstack_clients_requirements_path: /opt/openstack-clients/requirements.txt
+    openstack_clients_venv: /opt/openstack-clients/venv
+    openstack_clients_bin_dir: /usr/local/bin
+
+    openstack_auth_url: "https://{{ openstack_du_fqdn }}/keystone/v3"
+    openstack_region_name: Infra
+    openstack_project_name: service
+    openstack_user_domain_name: Default
+    openstack_project_domain_name: Default
+    openstack_interface: public
+    openstack_rc_path: /root/openstackrc
+
+  tasks:
+    - name: Install python3, pip, and venv support
+      ansible.builtin.apt:
+        name:
+          - python3
+          - python3-pip
+          - python3-venv
+        state: present
+        update_cache: true
+
+    - name: Create directory for the requirements file
+      ansible.builtin.file:
+        path: "{{ openstack_clients_requirements_path | dirname }}"
+        state: directory
+        mode: "0755"
+
+    - name: Download the openstack-clients requirements file
+      ansible.builtin.get_url:
+        url: "{{ openstack_clients_requirements_url }}"
+        dest: "{{ openstack_clients_requirements_path }}"
+        mode: "0644"
+        force: true
+
+    - name: Create the openstack-clients virtualenv and install requirements
+      ansible.builtin.pip:
+        requirements: "{{ openstack_clients_requirements_path }}"
+        virtualenv: "{{ openstack_clients_venv }}"
+        virtualenv_command: python3 -m venv
+
+    - name: Discover console scripts installed into the venv
+      ansible.builtin.find:
+        paths: "{{ openstack_clients_venv }}/bin"
+        excludes: "python*,pip*,activate*,Activate*"
+      register: openstack_clients_scripts
+
+    - name: Symlink installed CLIs onto PATH
+      ansible.builtin.file:
+        src: "{{ item.path }}"
+        dest: "{{ openstack_clients_bin_dir }}/{{ item.path | basename }}"
+        state: link
+        force: true
+      loop: "{{ openstack_clients_scripts.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+
+    - name: Fetch deployment status from airctl
+      ansible.builtin.command: airctl status --json
+      register: openstack_airctl_status
+      changed_when: false
+
+    - name: Parse the deployment FQDN out of airctl's status output
+      ansible.builtin.set_fact:
+        openstack_du_fqdn: "{{ openstack_airctl_status.stdout | regex_search('(?m)^fqdn:\\s*(\\S+)', '\\1') }}"
+
+    - name: Fail if the FQDN could not be parsed from airctl status output
+      ansible.builtin.fail:
+        msg: "Could not parse fqdn out of 'airctl status --json' output."
+      when: not openstack_du_fqdn
+
+    - name: Fetch PCD admin credentials from airctl
+      ansible.builtin.command: airctl get-creds --json
+      register: openstack_airctl_creds
+      changed_when: false
+      no_log: true
+
+    - name: Parse email and password out of airctl's output
+      ansible.builtin.set_fact:
+        openstack_admin_email: "{{ openstack_airctl_creds.stdout | regex_search('(?m)^email:\\s*(\\S+)', '\\1') }}"
+        openstack_admin_password: "{{ openstack_airctl_creds.stdout | regex_search('(?m)^password:\\s*(\\S+)', '\\1') }}"
+      no_log: true
+
+    - name: Fail if credentials could not be parsed from airctl output
+      ansible.builtin.fail:
+        msg: "Could not parse email/password out of 'airctl get-creds --json' output."
+      when: not openstack_admin_email or not openstack_admin_password
+
+    - name: Write openstackrc file for the PCD admin user
+      ansible.builtin.copy:
+        dest: "{{ openstack_rc_path }}"
+        content: |
+          export OS_USERNAME={{ openstack_admin_email | first }}
+          export OS_PASSWORD={{ openstack_admin_password | first }}
+          export OS_AUTH_URL=https://{{ openstack_du_fqdn | first }}/keystone/v3
+          export OS_AUTH_TYPE=password
+          export OS_IDENTITY_API_VERSION=3
+          export OS_REGION_NAME={{ openstack_region_name | default('Infra') }}
+          export OS_USER_DOMAIN_NAME={{ openstack_user_domain_name | default('Default') }}
+          export OS_PROJECT_DOMAIN_NAME={{ openstack_project_domain_name | default('Default') }}
+          export OS_PROJECT_NAME={{ openstack_project_name | default('Default') }}
+          export OS_INTERFACE={{ openstack_interface | default('public') }}
+        owner: root
+        group: root
+        mode: "0600"
+      no_log: true

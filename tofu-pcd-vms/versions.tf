@@ -16,5 +16,10 @@ terraform {
       source  = "registry.terraform.io/BehnH/assert"
       version = "0.1.0"
     }
+
+    ssh = {
+      source  = "registry.terraform.io/loafoe/ssh"
+      version = "~> 2.7"
+    }
   }
 }

@@ -1,3 +1,15 @@
+variable "pcd_hostname" {
+  description = "Hostname of the PCD management plane."
+  type        = string
+  default     = null
+}
+
+variable "pcd_ssh_username" {
+  description = "Username for SSH access to the PCD management plane."
+  type        = string
+  default     = "ubuntu"
+}
+
 variable "pcd_auth_url" {
   description = "Keystone v3 auth URL for the PCD management plane."
   type        = string
@@ -225,6 +237,26 @@ variable "compute_volume_attachments" {
   type        = map(object({
     instance_name = string
     volume_name   = string
+  }))
+  default     = {}
+}
+
+variable "dns_zones" {
+  description = "Map of DNS zone names to their email and TTL configuration."
+  type        = map(object({
+    description = optional(string, "Managed by Terraform")
+    type  = optional(string, "PRIMARY")
+    email = string
+    ttl   = optional(number, 300)
+    masters = optional(list(string), null)
+  }))
+  default     = {}
+}
+
+variable "network_dns_zone_associations" {
+  description = "Map of network names to DNS zone names for association."
+  type        = map(object({
+    dns_zone_name    = string
   }))
   default     = {}
 }

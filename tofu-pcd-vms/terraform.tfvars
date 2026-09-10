@@ -1,7 +1,9 @@
 onepassword_account = "ryefamily.1password.com"
 onepassword_vault = "Home_Lab"
 onepassword_item_title = "PCD Community - pcd.rye.ninja"
+pcd_hostname = "pcd.rye.ninja"
 pcd_auth_url = "https://pcd.rye.ninja/keystone/v3"
+pcd_ssh_username = "ubuntu"
 pcd_region = "Infra"
 pcd_tenant_name = "service"
 pcd_user_domain_id = "default"
@@ -140,4 +142,16 @@ compute_volume_attachments = {
     instance_name = "workload-vm"
     volume_name   = "workload-data"
   }
+}
+
+dns_zones = {
+    "usmnblm01.rye.ninja." = {
+        email = "operations@example.com"
+    }
+}
+
+network_dns_zone_associations = {
+    # "external-net" = {
+    #     dns_zone_name = "usmnblm01.rye.ninja."
+    # }
 }
