@@ -1,6 +1,6 @@
-resource "pcd_images_image" "cirros" {
+resource "pcd_images_image" "default" {
   for_each = var.compute_images
-  
+
   name             = each.key
   container_format = each.value.container_format
   disk_format      = each.value.disk_format

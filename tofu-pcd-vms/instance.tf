@@ -2,8 +2,8 @@ resource "pcd_compute_instance" "default" {
   for_each = var.compute_instances
 
   name  = each.key
-  image_name  = each.value.image_name
-  flavor_name = each.value.flavor_name
+  image_name  = pcd_images_image.default[each.value.image_name].name
+  flavor_name = pcd_compute_flavor.default[each.value.flavor_name].name
   key_pair    = pcd_compute_keypair.default[each.value.key_pair].name
   security_groups = [ for sg in each.value.security_groups : pcd_networking_secgroup.default[sg].name ]
 
