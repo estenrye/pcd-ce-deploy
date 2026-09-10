@@ -80,3 +80,56 @@ storage_backends_json = {
       }
     }
 }
+
+pdns4_credential_items = {
+    "https://pdns4-shim.rye.ninja:443" : {
+        vault = "controlplane"
+        title = "pdns4-shim.rye.ninja"
+    }
+}
+
+dns_role_pool_configurations = {
+    "10.45.60.1" = {
+        ssh_username    = "automation-user"
+        designate_pools = [
+            {
+                name        = "default"
+                description = "Cloudflare via pdns4-shim and external-dns"
+                attributes  = {}
+                ns_records  = [
+                    {
+                        hostname = "ns1.pcd-ce-lab.usmnblm01.rye.ninja."
+                        priority = 1
+                    }
+                ]
+                nameservers = [
+                    {
+                        host = "fd97:45c2:b3a1:f00::9280"
+                        port = 53
+                    }
+                ]
+                targets = [
+                    {
+                        type        = "pdns4"
+                        description = "pdns4-shim"
+                        masters = [
+                            {
+                                host = "10.45.0.1"
+                                port = 53
+                            }
+                        ]
+                        options = {
+                            host         = "10.45.60.1"
+                            port         = 53
+                            api_endpoint = "https://pdns4-shim.rye.ninja:443"
+                            api_token    = "example_token"
+                            # rndc_host    = "10.45.60.1"
+                            # rndc_port    = 953
+                            # rndc_key_file = "/etc/rndc.key"
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+}
