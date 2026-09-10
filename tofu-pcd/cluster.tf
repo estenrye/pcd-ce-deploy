@@ -35,3 +35,9 @@ resource "pcd_host_cluster_role" "storage" {
   role     = "persistent-storage"
   backends = [var.compute_volumes_configuration_name, var.image_library_configuration_name]
 }
+
+resource "pcd_host_cluster_role" "dns" {
+  for_each = var.host_cluster_dns_role_mappings
+  host_id  = pcd_host_config_assignment.default[each.key].host_id
+  role     = "dns"
+}

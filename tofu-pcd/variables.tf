@@ -155,6 +155,12 @@ variable "host_cluster_storage_role_mappings" {
   default     = {}
 }
 
+variable "host_cluster_dns_role_mappings" {
+  description = "Map of host IDs to DNS role assignments."
+  type        = map(string)
+  default     = {}
+}
+
 variable "storage_backends_json" {
   description = "JSON string describing the storage backends for the PCD cluster blueprint."
   type        = map(map(object({

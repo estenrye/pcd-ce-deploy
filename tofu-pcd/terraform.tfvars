@@ -48,6 +48,10 @@ host_cluster_storage_role_mappings = {
     "pcd-ce-hyp-01" = "pcd-ce-lab"
 }
 
+host_cluster_dns_role_mappings = {
+    "pcd-ce-hyp-01" = "pcd-ce-lab"
+}
+
 storage_backends_json = {
     "truenas-nfs-glance" = {
       "truenas-glance" = {
