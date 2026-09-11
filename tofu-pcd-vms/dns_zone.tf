@@ -35,6 +35,58 @@ resource "ssh_resource" "network_dns_zone_association_create" {
   ]
 }
 
+resource "ssh_resource" "subnet_dns_publish_fixed_ip_enable" {
+  for_each = { for k, v in var.network_subnets : k => v if v.dns_publish_fixed_ip }
+
+  host    = var.pcd_hostname
+  user    = var.pcd_ssh_username
+  agent   = true
+  timeout = "2m"
+  retry_delay = "10s"
+  when    = "create"
+
+  file {
+    destination = "/tmp/subnet_dns_publish_fixed_ip_enable_${each.key}.sh"
+    content     = <<-EOT
+      #!/bin/bash
+      set -euo pipefail
+      source /root/openstackrc
+      openstack subnet set --dns-publish-fixed-ip ${pcd_networking_subnet.default[each.key].id}
+    EOT
+    permissions = "0755"
+  }
+
+  commands = [
+    "sudo /tmp/subnet_dns_publish_fixed_ip_enable_${each.key}.sh",
+  ]
+}
+
+resource "ssh_resource" "subnet_dns_publish_fixed_ip_disable" {
+  for_each = { for k, v in var.network_subnets : k => v if v.dns_publish_fixed_ip }
+
+  host    = var.pcd_hostname
+  user    = var.pcd_ssh_username
+  agent   = true
+  timeout = "2m"
+  retry_delay = "10s"
+  when    = "destroy"
+
+  file {
+    destination = "/tmp/subnet_dns_publish_fixed_ip_disable_${each.key}.sh"
+    content     = <<-EOT
+      #!/bin/bash
+      set -euo pipefail
+      source /root/openstackrc
+      openstack subnet set --no-dns-publish-fixed-ip ${pcd_networking_subnet.default[each.key].id}
+    EOT
+    permissions = "0755"
+  }
+
+  commands = [
+    "sudo /tmp/subnet_dns_publish_fixed_ip_disable_${each.key}.sh",
+  ]
+}
+
 resource "ssh_resource" "network_dns_zone_association_destroy" {
   for_each = var.network_dns_zone_associations
 

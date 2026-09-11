@@ -207,6 +207,7 @@ variable "network_subnets" {
       end   = string
     })), [])
     dns_nameservers = optional(list(string), [])
+    dns_publish_fixed_ip = optional(bool, false)
   }))
   default     = {}
 }

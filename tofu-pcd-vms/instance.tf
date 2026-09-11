@@ -14,6 +14,17 @@ resource "pcd_compute_instance" "default" {
       uuid = pcd_networking_network.default[network.value].id
     }
   }
+
+  # Ports are created implicitly by this resource at instance-boot time, so
+  # the network's dns_domain and its subnets' dns_publish_fixed_ip must
+  # already be set before that happens - Neutron's external DNS driver
+  # skips ports on router:external networks entirely unless a subnet has
+  # dns_publish_fixed_ip set, and it only registers a record on port
+  # create/update, not retroactively.
+  depends_on = [
+    ssh_resource.network_dns_zone_association_create,
+    ssh_resource.subnet_dns_publish_fixed_ip_enable,
+  ]
 }
 
 resource "pcd_blockstorage_volume" "default" {

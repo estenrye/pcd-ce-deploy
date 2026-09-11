@@ -114,8 +114,22 @@ dns_role_pool_configurations = {
                         description = "pdns4-shim"
                         masters = [
                             {
-                                host = "10.45.0.1"
-                                port = 53
+                                # Short, dedicated address (see
+                                # ../../ansible/inventory.yml's
+                                # pcd-ce-hyp-01 netplan_overrides), not the
+                                # host's full EUI-64/SLAAC address: that's
+                                # 38 characters, too long for Designate's
+                                # own `zone_masters.host varchar(32)`
+                                # column -- confirmed live, `designate-
+                                # manage pool update` throws
+                                # "Data too long for column 'host'"
+                                # whenever a zone already exists in the
+                                # pool. designate-mdns's `[::]:5354`
+                                # wildcard bind answers on this address
+                                # automatically once it's live on the
+                                # host.
+                                host = "fd97:45c2:b3a1:100::5354"
+                                port = 5354
                             }
                         ]
                         options = {
@@ -131,5 +145,20 @@ dns_role_pool_configurations = {
                 ]
             }
         ]
+    }
+}
+
+# designate-mdns's own `[service:mdns] listen` config -- see
+# `designate_mdns_listener.tf` and
+# `../../pdns4-external-dns-rest-http-cr-shim/docs/specs/
+# 2026-09-10-axfr-zone-transfer.md` §2.1. A single `[::]:5354` entry, not
+# `0.0.0.0:5354` alongside it: this host's `net.ipv6.bindv6only=0` means
+# the IPv6 wildcard bind already answers IPv4 too, so keeping both would
+# have two sockets fighting over the same IPv4 wildcard address space on
+# port 5354.
+designate_mdns_listeners = {
+    "10.45.60.1" = {
+        ssh_username = "automation-user"
+        listen       = ["[::]:5354"]
     }
 }

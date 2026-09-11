@@ -20,11 +20,37 @@ all:
           ansible_host: "fd97:45c2:b3a1:100:e481:3fff:fec5:249f"
           netplan_overrides:
             network:
+              renderer: networkd
               bonds:
                 bond0:
                   addresses:
                     - 10.45.60.1/16
                     - fd97:45c2:b3a1:100::2001/64
+              # designate-mdns's AXFR-facing identity: Designate's own
+              # `zone_masters.host` column is `varchar(32)`, too narrow
+              # for this host's full EUI-64/SLAAC addresses (38 chars) --
+              # see ../pdns4-external-dns-rest-http-cr-shim/docs/specs/
+              # 2026-09-10-axfr-zone-transfer.md. This address is short
+              # enough (24 chars) to fit, and designate-mdns's `[::]:5354`
+              # wildcard bind answers on it automatically -- no separate
+              # listener config needed.
+              #
+              # Declared against `br-tun` (an `ethernets:` entry, not
+              # `bonds:`), not `bond0` -- confirmed live that a static
+              # address declared on `bond0` never survives PCD's OVS/
+              # Neutron setup enslaving `bond0` into the `br-tun` bridge
+              # (same fate as the pre-existing `::2001` above, itself
+              # declared on `bond0` and never actually live). `br-tun`
+              # already exists by the time this playbook can run again
+              # (created by OVS, not netplan) -- declaring it under
+              # `ethernets:` applies this address to the existing
+              # interface without netplan trying to own/recreate it, the
+              # way a `bridges:` stanza would.
+              ethernets:
+                br-tun:
+                  addresses:
+                    - fd97:45c2:b3a1:100::5354/64
+                  critical: true
       vars:
         ansible_user: automation-user
         netplan:

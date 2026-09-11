@@ -105,6 +105,7 @@ network_subnets = {
             end   = "10.45.140.255"
         }]
         dns_nameservers  = ["1.1.1.1", "8.8.8.8"]
+        dns_publish_fixed_ip = true
     },
     "external-subnet-v6" = {
         network_name     = "external-net"
@@ -117,6 +118,7 @@ network_subnets = {
             end   = "fd97:45c2:b3a1:100:7777::ffff"
         }]
         dns_nameservers  = ["fd97:45c2:b3a1:64::64", "2606:4700:4700::64"]
+        dns_publish_fixed_ip = true
     },
 }
 
@@ -151,7 +153,7 @@ dns_zones = {
 }
 
 network_dns_zone_associations = {
-    # "external-net" = {
-    #     dns_zone_name = "usmnblm01.rye.ninja."
-    # }
+    "external-net" = {
+        dns_zone_name = "usmnblm01.rye.ninja."
+    }
 }

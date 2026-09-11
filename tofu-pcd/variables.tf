@@ -380,3 +380,33 @@ variable "dns_role_pool_configurations" {
     ])
   }
 }
+
+# The `masters`/`nameservers` addresses `dns_role_pool_configurations`
+# points at (see `designate_pdns_pool.tf`) are only useful if
+# designate-mdns actually listens there. designate-mdns's own
+# `[service:mdns] listen` config (`/opt/pf9/etc/pf9-designate/
+# designate.conf` on the host it runs on -- a Platform9 systemd unit, not
+# a container/pod) is otherwise undeclared infrastructure: nothing in this
+# project managed it before, so a manual edit on the host could silently
+# drift from what the pool config expects. See
+# `../../pdns4-external-dns-rest-http-cr-shim/docs/specs/
+# 2026-09-10-axfr-zone-transfer.md` §2.1 for why a single `[::]:5354`
+# entry (not `0.0.0.0:5354` plus a specific IPv6 GUA) is the right value:
+# this host's `net.ipv6.bindv6only=0` means the IPv6 wildcard already
+# answers IPv4 too, so listing both would have two sockets fighting over
+# the same IPv4 wildcard address space on port 5354.
+variable "designate_mdns_listeners" {
+  description = "Per-host designate-mdns [service:mdns] `listen` addresses to enforce (host:port pairs; bracket IPv6 literals, e.g. \"[::]:5354\")."
+  type        = map(object({
+    ssh_username = string
+    listen       = list(string)
+  }))
+  default     = {}
+
+  validation {
+    error_message = "Every designate-mdns listener host must configure at least one listen address."
+    condition     = alltrue([
+      for host, config in var.designate_mdns_listeners : length(config.listen) > 0
+    ])
+  }
+}

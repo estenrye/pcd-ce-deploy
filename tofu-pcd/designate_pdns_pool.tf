@@ -51,7 +51,7 @@ resource "ssh_resource" "dns_role_pool_configuration" {
     EOT
     permissions = "0755"
   }
-  
+
   commands = [
     "sudo /tmp/dns_role_pool_configuration_${each.key}.sh",
   ]
