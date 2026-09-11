@@ -383,30 +383,39 @@ variable "dns_role_pool_configurations" {
 
 # The `masters`/`nameservers` addresses `dns_role_pool_configurations`
 # points at (see `designate_pdns_pool.tf`) are only useful if
-# designate-mdns actually listens there. designate-mdns's own
-# `[service:mdns] listen` config (`/opt/pf9/etc/pf9-designate/
-# designate.conf` on the host it runs on -- a Platform9 systemd unit, not
-# a container/pod) is otherwise undeclared infrastructure: nothing in this
-# project managed it before, so a manual edit on the host could silently
-# drift from what the pool config expects. See
+# designate-mdns actually listens there. designate-mdns's `[service:mdns]
+# listen` setting is *not* durably configurable by editing
+# `/opt/pf9/etc/pf9-designate/designate.conf` directly on the host --
+# confirmed live: `pf9-hostd` (Platform9's host agent) reverts that file
+# back to the `pf9-designate` resmgr role's own stored settings on its own
+# reconciliation cycle (observed within roughly 10-90s of a manual edit,
+# restarts notwithstanding). The real, durable source of truth is the role
+# settings themselves, held server-side in PCD's resmgr and readable/
+# writable via its v1 API (`GET`/`PUT
+# .../resmgr/v1/hosts/{host_id}/roles/pf9-designate`) -- confirmed live
+# that `GET` returns exactly `{"debug": "True", "listen": "0.0.0.0:5354"}`,
+# i.e. this *is* the "designate role json" pf9-designate reads its
+# overrides from. The `pcd` provider's own `pcd_host_role` resource can't
+# express this: its schema has no settings field at all, and its own doc
+# comment says role assignment "applies a role's *default* settings" --
+# so `designate_mdns_listener.tf` drives this endpoint directly via
+# `null_resource`/`local-exec` instead. See
 # `../../pdns4-external-dns-rest-http-cr-shim/docs/specs/
-# 2026-09-10-axfr-zone-transfer.md` §2.1 for why a single `[::]:5354`
-# entry (not `0.0.0.0:5354` plus a specific IPv6 GUA) is the right value:
-# this host's `net.ipv6.bindv6only=0` means the IPv6 wildcard already
-# answers IPv4 too, so listing both would have two sockets fighting over
-# the same IPv4 wildcard address space on port 5354.
-variable "designate_mdns_listeners" {
-  description = "Per-host designate-mdns [service:mdns] `listen` addresses to enforce (host:port pairs; bracket IPv6 literals, e.g. \"[::]:5354\")."
-  type        = map(object({
-    ssh_username = string
-    listen       = list(string)
-  }))
+# 2026-09-10-axfr-zone-transfer.md`'s 2026-09-11 amendment for the full
+# investigation, and that spec's §2.1 for why `listen: "[::]:5354"` (not
+# `"0.0.0.0:5354"` plus a specific IPv6 GUA) is the right value: this
+# host's `net.ipv6.bindv6only=0` means the IPv6 wildcard already answers
+# IPv4 too, so listing both would have two sockets fighting over the same
+# IPv4 wildcard address space on port 5354.
+variable "designate_role_overrides" {
+  description = "Per-host overrides for the pf9-designate resmgr role's settings (e.g. `listen`), keyed the same as `host_config_mappings` so the corresponding host_id can be looked up. Pushed via a direct PUT to resmgr's v1 API -- see this variable's file-level doc comment for why."
+  type        = map(map(string))
   default     = {}
 
   validation {
-    error_message = "Every designate-mdns listener host must configure at least one listen address."
+    error_message = "Every designate_role_overrides key must also be a key in host_config_mappings, so its resmgr host_id can be resolved."
     condition     = alltrue([
-      for host, config in var.designate_mdns_listeners : length(config.listen) > 0
+      for host in keys(var.designate_role_overrides) : contains(keys(var.host_config_mappings), host)
     ])
   }
 }

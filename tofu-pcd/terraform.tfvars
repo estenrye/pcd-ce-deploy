@@ -148,17 +148,21 @@ dns_role_pool_configurations = {
     }
 }
 
-# designate-mdns's own `[service:mdns] listen` config -- see
-# `designate_mdns_listener.tf` and
+# designate-mdns's own `[service:mdns] listen` config, pushed via
+# resmgr's v1 API (designate_mdns_listener.tf) -- see that file and
 # `../../pdns4-external-dns-rest-http-cr-shim/docs/specs/
-# 2026-09-10-axfr-zone-transfer.md` §2.1. A single `[::]:5354` entry, not
-# `0.0.0.0:5354` alongside it: this host's `net.ipv6.bindv6only=0` means
-# the IPv6 wildcard bind already answers IPv4 too, so keeping both would
-# have two sockets fighting over the same IPv4 wildcard address space on
-# port 5354.
-designate_mdns_listeners = {
-    "10.45.60.1" = {
-        ssh_username = "automation-user"
-        listen       = ["[::]:5354"]
+# 2026-09-10-axfr-zone-transfer.md` §2.1 and its 2026-09-11 amendment.
+# Keyed the same as host_config_mappings (pcd-ce-hyp-01), not an SSH
+# host/IP -- this no longer touches the host directly over SSH.
+# `listen: "[::]:5354"`, not "0.0.0.0:5354" alongside it: this host's
+# `net.ipv6.bindv6only=0` means the IPv6 wildcard bind already answers
+# IPv4 too, so listing both would have two sockets fighting over the same
+# IPv4 wildcard address space on port 5354. `debug` carried forward
+# unchanged from the role's existing value (confirmed live via GET) since
+# this PUT replaces the full settings dict.
+designate_role_overrides = {
+    "pcd-ce-hyp-01" = {
+        debug  = "True"
+        listen = "[::]:5354"
     }
 }

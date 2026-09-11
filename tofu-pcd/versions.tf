@@ -20,5 +20,14 @@ terraform {
       source  = "registry.terraform.io/loafoe/ssh"
       version = "~> 2.7"
     }
+    null = {
+      # Drives the resmgr v1 API's role-settings PUT (designate_mdns_
+      # listener.tf) via local-exec -- the pcd provider's own
+      # pcd_host_role resource only supports a role's *default* settings
+      # (see its own schema description), so there's no native-provider
+      # path for this.
+      source  = "hashicorp/null"
+      version = "~> 3.2"
+    }
   }
 }
