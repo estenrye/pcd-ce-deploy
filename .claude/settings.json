@@ -77,7 +77,23 @@
       "Bash(ssh automation-user@10.45.60.1 \"curl -6 -v --max-time 10 https://github.com 2>&1 | tail -20; echo EXIT:\\\\$?\")",
       "Bash(ssh automation-user@10.45.60.1 \"curl -sL -o /dev/null -w 'HTTP_STATUS:%{http_code} SIZE:%{size_download} TIME:%{time_total} REMOTE_IP:%{remote_ip}\\\\n' --max-time 15 https://download.cirros-cloud.net/0.6.2/cirros-0.6.2-x86_64-disk.img 2>&1\")",
       "Bash(ssh automation-user@10.45.60.1 'GH=$\\(dig +short AAAA github.com @fd97:45c2:b3a1:64::64\\); echo \"resolved: $GH\"; curl -6 -sI --resolve github.com:443:$GH --max-time 10 https://github.com 2>&1 | head -3')",
-      "Bash(ssh automation-user@10.45.60.1 'sudo systemctl disable --now nat64-route.service 2>&1 *)"
+      "Bash(ssh automation-user@10.45.60.1 'sudo systemctl disable --now nat64-route.service 2>&1 *)",
+      "WebFetch(domain:github.com)",
+      "WebSearch",
+      "WebFetch(domain:docs.platform9.com)",
+      "Bash(timeout 6 ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new ubuntu@pcd.rye.ninja 'echo CONNECTED && hostname && whoami')",
+      "Bash(ssh -o BatchMode=yes -o ConnectTimeout=6 -o StrictHostKeyChecking=accept-new ubuntu@pcd.rye.ninja 'echo CONNECTED && hostname && whoami')",
+      "Bash(ssh -o BatchMode=yes -o ConnectTimeout=6 ubuntu@pcd.rye.ninja 'sudo find /opt/pf9/etc -iname \"neutron.conf\" 2>/dev/null; echo \"---\"; sudo find / -xdev -iname \"neutron.conf\" 2>/dev/null | head -20')",
+      "Bash(ssh -o BatchMode=yes -o ConnectTimeout=6 ubuntu@pcd.rye.ninja ' *)",
+      "Bash(ssh -o BatchMode=yes -o ConnectTimeout=6 ubuntu@pcd.rye.ninja 'rm -f /tmp/neutron-values.yaml && echo cleaned')",
+      "Bash(gh auth *)",
+      "Bash(gh repo *)",
+      "Read(//Users/esten/src/**)",
+      "Bash(cargo --version)",
+      "Bash(rustc --version)",
+      "Read(//Users/esten/src/pdns4-external-dns-rest-http-cr-shim/**)",
+      "Bash(ls -la /Users/esten/src/pdns4-external-dns-rest-http-cr-shim/ | grep -i licen)",
+      "Read(//Users/esten/src/pdns4-external-dns-rest-http-cr-shim/src/**)"
     ],
     "additionalDirectories": [
       "/Users/esten/src/flux-platform-src/applications/crossplane-resources/xnetworksegment/examples",
@@ -91,7 +107,8 @@
       "/Users/esten/src/flux-platform-src/applications/crossplane-resources/xkubernetescluster",
       "/Users/esten/src/flux-platform-src/docs/runbooks",
       "/Users/esten/src/flux-platform-src/docs/superpowers/specs",
-      "/Users/esten/src/flux-platform-src/docs/adr"
+      "/Users/esten/src/flux-platform-src/docs/adr",
+      "/Users/esten/src/neutron-ml2-guardian"
     ]
   }
 }
