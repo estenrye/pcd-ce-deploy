@@ -6,6 +6,7 @@ resource "pcd_compute_instance" "default" {
   flavor_name = pcd_compute_flavor.default[each.value.flavor_name].name
   key_pair    = pcd_compute_keypair.default[each.value.key_pair].name
   security_groups = [ for sg in each.value.security_groups : pcd_networking_secgroup.default[sg].name ]
+  config_drive = each.value.config_drive
 
   dynamic "network" {
     for_each = each.value.networks
@@ -20,10 +21,12 @@ resource "pcd_compute_instance" "default" {
   # already be set before that happens - Neutron's external DNS driver
   # skips ports on router:external networks entirely unless a subnet has
   # dns_publish_fixed_ip set, and it only registers a record on port
-  # create/update, not retroactively.
+  # create/update, not retroactively. Likewise, a self-service subnet needs
+  # its router interface attached before a guest can get a lease/route.
   depends_on = [
     ssh_resource.network_dns_zone_association_create,
     ssh_resource.subnet_dns_publish_fixed_ip_enable,
+    pcd_networking_router_interface.vlan1000_v6,
   ]
 }
 

@@ -24,6 +24,13 @@ compute_images = {
         visibility       = "public"
         source_url       = "https://download.cirros-cloud.net/0.6.2/cirros-0.6.2-x86_64-disk.img"
     }
+    "ubuntu-noble" = {
+        container_format = "bare"
+        disk_format      = "qcow2"
+        min_disk         = 2
+        visibility       = "public"
+        source_url       = "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
+    }
 }
 
 compute_flavors = {
@@ -91,6 +98,31 @@ networks = {
             physical_network = "physnet1"
         }]
     }
+    "vlan1000-net" = {
+        description    = "Self-service VLAN 1000 network, routed off external-net"
+        shared         = false
+        external       = false
+        tags           = ["tf-managed"]
+        admin_state_up = true
+        segments       = [{
+            network_type     = "vlan"
+            physical_network = "physnet1"
+            segmentation_id  = 1000
+        }]
+    }
+}
+
+ipv6_dhcpv6_stateful_subnets = {
+    "vlan1000-subnet-v6" = {
+        network_name     = "vlan1000-net"
+        cidr             = "fd97:45c2:b3a1:1000::/64"
+        gateway_ip       = "fd97:45c2:b3a1:1000::1"
+        allocation_pools = [{
+            start = "fd97:45c2:b3a1:1000::2"
+            end   = "fd97:45c2:b3a1:1000:ffff:ffff:ffff:ffff"
+        }]
+        dns_nameservers  = ["fd97:45c2:b3a1:64::64", "2606:4700:4700::64"]
+    }
 }
 
 network_subnets = {
@@ -124,11 +156,14 @@ network_subnets = {
 
 compute_instances = {
     "workload-vm" = {
-        image_name      = "cirros"
+        image_name      = "ubuntu-noble"
         flavor_name     = "small"
         key_pair        = "esten-personal"
         security_groups = ["allow-ssh-icmp"]
-        networks        = ["external-net"]
+        networks        = ["vlan1000-net"]
+        # vlan1000-net is IPv6-only, so the IPv4 metadata endpoint isn't
+        # reachable - cloud-init needs the config drive to get its SSH key.
+        config_drive    = true
     }
 }
 

@@ -220,6 +220,30 @@ variable "compute_instances" {
     key_pair    = string
     security_groups = optional(list(string))
     networks     = optional(list(string))
+    config_drive = optional(bool, false)
+  }))
+  default     = {}
+}
+
+variable "ipv6_dhcpv6_stateful_subnets" {
+  description = <<-EOT
+    Map of IPv6 subnets that need ipv6_ra_mode/ipv6_address_mode set to
+    dhcpv6-stateful, so Neutron's DHCPv6 agent hands out the exact addresses
+    in allocation_pools instead of guests self-assigning via SLAAC. Neutron
+    treats both fields as immutable after creation, and neither the
+    pcd_networking_subnet resource nor `openstack subnet set` can set them,
+    so these are created directly via `openstack subnet create` over SSH
+    and looked up with a data source instead of being resource-managed.
+  EOT
+  type        = map(object({
+    network_name    = string
+    cidr            = string
+    gateway_ip      = string
+    allocation_pools = optional(list(object({
+      start = string
+      end   = string
+    })), [])
+    dns_nameservers = optional(list(string), [])
   }))
   default     = {}
 }
