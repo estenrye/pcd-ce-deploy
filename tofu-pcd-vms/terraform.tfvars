@@ -192,3 +192,13 @@ network_dns_zone_associations = {
         dns_zone_name = "usmnblm01.rye.ninja."
     }
 }
+
+neutron_ml2_guardian = {
+    chart_version = "0.1.1"
+    unifi_api_key_item = {
+        vault = "controlplane"
+        title = "unifi-os-xnetworksegment"
+    }
+    unifi_host = "10.45.0.1"
+    unifi_site = "default"
+}

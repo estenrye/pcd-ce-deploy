@@ -285,3 +285,43 @@ variable "network_dns_zone_associations" {
   }))
   default     = {}
 }
+
+variable "neutron_ml2_guardian" {
+  description = <<-EOT
+    Deploys neutron-ml2-guardian (github.com/estenrye/neutron-ml2-guardian)
+    to the PCD management-plane cluster reachable at pcd_hostname/
+    pcd_ssh_username -- a self-healing controller that keeps the UniFi
+    Neutron ML2 mechanism driver installed on the PCD-managed
+    `neutron-server` Deployment (in the `pcd` namespace, Helm release
+    `neutron`), surviving PCD upgrades that would otherwise silently
+    revert the customization. See
+    ../../neutron-ml2-guardian/docs/specs/2026-09-13-neutron-ml2-guardian-design.md
+    for the full design and live-testing history.
+
+    Null (the default) disables this entirely -- no resources are created.
+
+    `unifi_api_key_item` names a 1Password item whose `credential` field
+    holds the UDM-SE's UniFi Network Integration API key. Deliberately not
+    threaded through a Kubernetes Secret file written to the PCD host's
+    disk (an earlier manual deployment attempt had this blocked outright
+    by Claude Code's own safety classifier when it tried); instead the
+    ssh_resource below pipes it directly into `kubectl create secret ...
+    --dry-run=client -o yaml | kubectl apply -f -` over the already-
+    authenticated SSH session. It does still end up in this module's
+    Terraform state via the onepassword_item data source, the same
+    tradeoff ../../tofu-pcd/designate_pdns_pool.tf already accepts for the
+    (similarly third-party-API-credential-shaped) pdns4 shim token -- a
+    materially different, and lesser, exposure than a plaintext file
+    parked on a shared production host's disk.
+  EOT
+  type = object({
+    chart_version = string
+    unifi_api_key_item = object({
+      vault = string
+      title = string
+    })
+    unifi_host = string
+    unifi_site = optional(string, "default")
+  })
+  default = null
+}
