@@ -93,7 +93,11 @@
       "Bash(rustc --version)",
       "Read(//Users/esten/src/pdns4-external-dns-rest-http-cr-shim/**)",
       "Bash(ls -la /Users/esten/src/pdns4-external-dns-rest-http-cr-shim/ | grep -i licen)",
-      "Read(//Users/esten/src/pdns4-external-dns-rest-http-cr-shim/src/**)"
+      "Read(//Users/esten/src/pdns4-external-dns-rest-http-cr-shim/src/**)",
+      "Bash(op read *)",
+      "Read(//Users/esten/src/networking-unifi/unifi_ml2_driver/**)",
+      "Read(//Users/esten/src/networking-unifi/**)",
+      "Bash(python3 -m py_compile unifi_ml2_driver/unifi_mech.py unifi_ml2_driver/config.py)"
     ],
     "additionalDirectories": [
       "/Users/esten/src/flux-platform-src/applications/crossplane-resources/xnetworksegment/examples",
@@ -108,7 +112,9 @@
       "/Users/esten/src/flux-platform-src/docs/runbooks",
       "/Users/esten/src/flux-platform-src/docs/superpowers/specs",
       "/Users/esten/src/flux-platform-src/docs/adr",
-      "/Users/esten/src/neutron-ml2-guardian"
+      "/Users/esten/src/neutron-ml2-guardian",
+      "/Users/esten/src/networking-unifi/unifi_ml2_driver",
+      "/Users/esten/src/networking-unifi"
     ]
   }
 }

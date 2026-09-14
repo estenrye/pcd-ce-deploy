@@ -93,10 +93,12 @@ resource "ssh_resource" "neutron_ml2_guardian" {
 
       sudo kubectl create secret generic neutron-ml2-unifi-external-config \
         -n pcd \
-        --from-literal=unifi.ini="$(printf '[unifi]\nhost = %s\nport = 443\napikey = %s\nsite = %s\nverify_ssl = false\n' \
+        --from-literal=unifi.ini="$(printf '[unifi]\nhost = %s\nport = 443\napikey = %s\nsite = %s\nverify_ssl = false\n%s%s' \
           '${var.neutron_ml2_guardian.unifi_host}' \
           '${data.onepassword_item.unifi_api_key[0].credential}' \
-          '${var.neutron_ml2_guardian.unifi_site}')" \
+          '${var.neutron_ml2_guardian.unifi_site}' \
+          '${var.neutron_ml2_guardian.default_firewall_zone != null ? "default_firewall_zone = ${var.neutron_ml2_guardian.default_firewall_zone}\n" : ""}' \
+          '${var.neutron_ml2_guardian.nat66_egress_interface != null ? "nat66_egress_interface = ${var.neutron_ml2_guardian.nat66_egress_interface}\n" : ""}')" \
         --dry-run=client -o yaml | sudo kubectl apply -f -
 
       sudo helm upgrade --install neutron-ml2-guardian \

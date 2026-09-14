@@ -322,6 +322,18 @@ variable "neutron_ml2_guardian" {
     })
     unifi_host = string
     unifi_site = optional(string, "default")
+    # Name of the UniFi firewall zone that VLAN networks created by the
+    # driver should be assigned to (zone membership lives on the zone
+    # object's own network_ids, not on the network itself -- see
+    # unifi_ml2_driver's config.py). Null (the default) skips zone
+    # assignment entirely, matching the driver's own default.
+    default_firewall_zone = optional(string)
+    # Exact name of the UniFi network or VPN tunnel (a networkconf --
+    # WAN uplinks and VPN tunnels are both networkconf entries) to use
+    # as the default NAT66 egress interface. Null (the default) skips
+    # NAT66 sync entirely when more than one WAN exists, matching the
+    # driver's own default -- see unifi_ml2_driver's config.py.
+    nat66_egress_interface = optional(string)
   })
   default = null
 }
