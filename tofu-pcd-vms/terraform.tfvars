@@ -185,6 +185,9 @@ dns_zones = {
     "usmnblm01.rye.ninja." = {
         email = "operations@example.com"
     }
+    "rye.ninja." = {
+        email = "operations@example.com"
+    }
 }
 
 network_dns_zone_associations = {
