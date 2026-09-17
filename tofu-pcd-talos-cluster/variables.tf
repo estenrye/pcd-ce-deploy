@@ -176,6 +176,26 @@ variable "service_subnet" {
   default     = "fd10:96::/112"
 }
 
+variable "cni_name" {
+  description = <<-EOT
+    Talos's cluster.network.cni.name: "flannel" (Talos's own default),
+    "custom" (supply your own manifest URLs -- not wired up here), or
+    "none" to skip installing any CNI at all. Defaults to "none" here
+    on the assumption a bare-minimum cluster is meant to have its real
+    CNI (e.g. Cilium) installed deliberately afterward, not Flannel by
+    default. With "none", nodes come up Ready but pods that aren't
+    host-network (CoreDNS included) stay Pending/ContainerCreating
+    until a CNI is applied.
+  EOT
+  type        = string
+  default     = "none"
+
+  validation {
+    condition     = contains(["flannel", "custom", "none"], var.cni_name)
+    error_message = "cni_name must be \"flannel\", \"custom\", or \"none\"."
+  }
+}
+
 variable "controlplane_flavor" {
   description = "Compute flavor for the single control-plane node. 2 vCPU / 2GiB is Talos's documented controlplane floor; bumped to 4GiB here since this node also runs workloads (allowSchedulingOnControlPlanes) and 2GiB is known to be tight once etcd + the control-plane static pods + kubelet + CoreDNS are all resident."
   type = object({

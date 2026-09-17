@@ -67,6 +67,9 @@ data "talos_machine_configuration" "controlplane" {
         network = {
           podSubnets     = [var.pod_subnet]
           serviceSubnets = [var.service_subnet]
+          cni = {
+            name = var.cni_name
+          }
         }
       }
     })
