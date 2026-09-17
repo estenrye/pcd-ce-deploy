@@ -152,6 +152,25 @@ network_subnets = {
         dns_nameservers  = ["fd97:45c2:b3a1:64::64", "2606:4700:4700::64"]
         dns_publish_fixed_ip = true
     },
+    # Real public GUA prefix, routed on the same physnet1 L2 domain the
+    # pcd-ce host itself lives on (gateway ::1, pcd-ce at ::dead -- see
+    # ../docs/pcd-cd/ipv6.md). allocation_pools is deliberately narrowed to
+    # the :7777:: slice, matching external-subnet-v6's convention, so
+    # Neutron never hands out an address that collides with something
+    # already statically assigned elsewhere in this /64.
+    "external-subnet-v6-gua" = {
+        network_name     = "external-net"
+        cidr             = "2607:3640:1064:270::/64"
+        ip_version       = 6
+        gateway_ip       = "2607:3640:1064:270::1"
+        enable_dhcp      = true
+        allocation_pools = [{
+            start = "2607:3640:1064:270:7777::1"
+            end   = "2607:3640:1064:270:7777::ffff"
+        }]
+        dns_nameservers  = ["fd97:45c2:b3a1:64::64", "2606:4700:4700::64"]
+        dns_publish_fixed_ip = true
+    },
 }
 
 compute_instances = {
