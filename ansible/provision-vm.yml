@@ -219,6 +219,7 @@
           --graphics none
           --network bridge={{ vm_bridge }},model=virtio,mac.address={{ vm_mac_address }}
           --import
+          --autostart
           --noautoconsole
       when: vol_info_check.rc != 0
 
