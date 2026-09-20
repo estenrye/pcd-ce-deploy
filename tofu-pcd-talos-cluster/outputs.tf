@@ -3,6 +3,11 @@ output "controlplane_address" {
   value       = local.controlplane_address
 }
 
+output "controlplane_bgp_address" {
+  description = "IPv6 address of the control-plane node on bgp-net (its BGP source address)."
+  value       = pcd_networking_port.controlplane_bgp.all_fixed_ips[0]
+}
+
 output "cluster_endpoint" {
   description = "Kubernetes API server endpoint."
   value       = "https://[${local.controlplane_address}]:6443"

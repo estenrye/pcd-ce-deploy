@@ -136,6 +136,26 @@ variable "dns_nameservers" {
   default     = ["fd97:45c2:b3a1:64::64", "2606:4700:4700::64"]
 }
 
+# --- BGP network (owned by ../tofu-pcd-vms) ---
+
+variable "bgp_network_name" {
+  description = "Name of the existing network to attach the node's second NIC to for BGP peering."
+  type        = string
+  default     = "bgp-net"
+}
+
+variable "bgp_subnet_name" {
+  description = "Name of the existing subnet on bgp_network_name to allocate the node's BGP-facing address from."
+  type        = string
+  default     = "bgp-subnet-v6"
+}
+
+variable "bgp_secgroup_name" {
+  description = "Name of the existing security group applied to the node's bgp-net port."
+  type        = string
+  default     = "allow-bgp-icmp"
+}
+
 # --- Talos cluster shape ---
 
 variable "cluster_name" {

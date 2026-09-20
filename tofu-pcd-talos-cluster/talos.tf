@@ -30,6 +30,16 @@ data "talos_machine_configuration" "controlplane" {
                 ipv4 = false
                 ipv6 = true
               }
+            },
+            # bgp-net (bgp.tf): second NIC, attached after the cluster
+            # network in instance.tf. Same dhcpv6-stateful setup as eth0.
+            {
+              interface = "eth1"
+              dhcp      = true
+              dhcpOptions = {
+                ipv4 = false
+                ipv6 = true
+              }
             }
           ]
           # Without this, Talos's host DNS resolver falls back to (or

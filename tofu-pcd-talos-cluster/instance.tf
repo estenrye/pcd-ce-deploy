@@ -30,8 +30,14 @@ resource "pcd_compute_instance" "controlplane" {
   # No top-level security_groups -- that argument only takes effect when
   # Nova creates the port itself; ours is pre-created above with its own
   # security_group_ids.
+  # Order matters: Nova attaches these in order, so the cluster network is
+  # eth0 and bgp-net is eth1 -- talos.tf's interface config assumes this.
   network {
     port = pcd_networking_port.controlplane.id
+  }
+
+  network {
+    port = pcd_networking_port.controlplane_bgp.id
   }
 
   # Same reason as ../tofu-pcd-vms/terraform.tfvars's workload-vm: this

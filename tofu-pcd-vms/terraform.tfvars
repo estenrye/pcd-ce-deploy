@@ -45,6 +45,9 @@ security_groups = {
     "allow-ssh-icmp" = {
         description = "Allow SSH and ICMP traffic."
     }
+    "allow-bgp-icmp" = {
+        description = "Allow BGP and ICMPv6 between bgp-net clients and the gateway."
+    }
 }
 
 security_group_rules = {
@@ -83,6 +86,46 @@ security_group_rules = {
         ethertype          = "IPv6"
         protocol           = "ipv6-icmp"
         remote_ip_prefix   = "::/0"
+    },
+    # Scoped to the bgp-net gateway (fd97:45c2:b3a1:1179::1) only, not the
+    # whole /64 -- clients peer with the gateway, not with each other.
+    # Neutron security groups are stateful, but both directions are listed
+    # so either side can initiate the BGP session.
+    "allow-bgp-v6-ingress" = {
+        security_group     = "allow-bgp-icmp"
+        description        = "Allow BGP from the bgp-net gateway"
+        direction          = "ingress"
+        ethertype          = "IPv6"
+        protocol           = "tcp"
+        port_range_min     = 179
+        port_range_max     = 179
+        remote_ip_prefix   = "fd97:45c2:b3a1:1179::1/128"
+    },
+    "allow-bgp-v6-egress" = {
+        security_group     = "allow-bgp-icmp"
+        description        = "Allow BGP to the bgp-net gateway"
+        direction          = "egress"
+        ethertype          = "IPv6"
+        protocol           = "tcp"
+        port_range_min     = 179
+        port_range_max     = 179
+        remote_ip_prefix   = "fd97:45c2:b3a1:1179::1/128"
+    },
+    "allow-bgp-icmp-v6-ingress" = {
+        security_group     = "allow-bgp-icmp"
+        description        = "Allow ICMPv6 from the bgp-net gateway"
+        direction          = "ingress"
+        ethertype          = "IPv6"
+        protocol           = "ipv6-icmp"
+        remote_ip_prefix   = "fd97:45c2:b3a1:1179::1/128"
+    },
+    "allow-bgp-icmp-v6-egress" = {
+        security_group     = "allow-bgp-icmp"
+        description        = "Allow ICMPv6 to the bgp-net gateway"
+        direction          = "egress"
+        ethertype          = "IPv6"
+        protocol           = "ipv6-icmp"
+        remote_ip_prefix   = "fd97:45c2:b3a1:1179::1/128"
     }
 }
 
@@ -110,6 +153,18 @@ networks = {
             segmentation_id  = 1000
         }]
     }
+    "bgp-net" = {
+        description    = "Self-service VLAN 1179 network for BGP peering with the UDM-SE"
+        shared         = false
+        external       = false
+        tags           = ["tf-managed"]
+        admin_state_up = true
+        segments       = [{
+            network_type     = "vlan"
+            physical_network = "physnet1"
+            segmentation_id  = 1179
+        }]
+    }
 }
 
 ipv6_dhcpv6_stateful_subnets = {
@@ -120,6 +175,16 @@ ipv6_dhcpv6_stateful_subnets = {
         allocation_pools = [{
             start = "fd97:45c2:b3a1:1000::2"
             end   = "fd97:45c2:b3a1:1000:ffff:ffff:ffff:ffff"
+        }]
+        dns_nameservers  = ["fd97:45c2:b3a1:64::64", "2606:4700:4700::64"]
+    }
+    "bgp-subnet-v6" = {
+        network_name     = "bgp-net"
+        cidr             = "fd97:45c2:b3a1:1179::/64"
+        gateway_ip       = "fd97:45c2:b3a1:1179::1"
+        allocation_pools = [{
+            start = "fd97:45c2:b3a1:1179::2"
+            end   = "fd97:45c2:b3a1:1179:ffff:ffff:ffff:ffff"
         }]
         dns_nameservers  = ["fd97:45c2:b3a1:64::64", "2606:4700:4700::64"]
     }
