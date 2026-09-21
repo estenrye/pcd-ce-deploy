@@ -1,11 +1,6 @@
 output "controlplane_address" {
-  description = "IPv6 address of the control-plane node."
+  description = "IPv6 address of the control-plane node (on bgp-net; also its BGP source address)."
   value       = local.controlplane_address
-}
-
-output "controlplane_bgp_address" {
-  description = "IPv6 address of the control-plane node on bgp-net (its BGP source address)."
-  value       = pcd_networking_port.controlplane_bgp.all_fixed_ips[0]
 }
 
 output "cluster_endpoint" {

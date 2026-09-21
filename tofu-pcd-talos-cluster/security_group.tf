@@ -2,7 +2,7 @@
 # apid (50000/tcp) via talosctl. Rules scoped to what an IPv6-only,
 # single-node (controlplane + workload) Talos cluster actually needs;
 # etcd/trustd/kubelet are only ever node-to-node so they're scoped to the
-# cluster's own subnet rather than opened to ::/0.
+# bgp-net subnet (where the whole cluster lives) rather than opened to ::/0.
 resource "pcd_networking_secgroup" "talos" {
   name        = "${var.cluster_name}-cluster"
   description = "Talos + Kubernetes control-plane access for the ${var.cluster_name} cluster"
@@ -47,7 +47,7 @@ resource "pcd_networking_secgroup_rule" "talos_trustd_ingress" {
   protocol          = "tcp"
   port_range_min    = 50001
   port_range_max    = 50001
-  remote_ip_prefix  = var.subnet_cidr
+  remote_ip_prefix  = data.pcd_networking_subnet.bgp.cidr
 }
 
 resource "pcd_networking_secgroup_rule" "etcd_ingress" {
@@ -58,7 +58,7 @@ resource "pcd_networking_secgroup_rule" "etcd_ingress" {
   protocol          = "tcp"
   port_range_min    = 2379
   port_range_max    = 2380
-  remote_ip_prefix  = var.subnet_cidr
+  remote_ip_prefix  = data.pcd_networking_subnet.bgp.cidr
 }
 
 resource "pcd_networking_secgroup_rule" "kubelet_ingress" {
@@ -69,5 +69,24 @@ resource "pcd_networking_secgroup_rule" "kubelet_ingress" {
   protocol          = "tcp"
   port_range_min    = 10250
   port_range_max    = 10250
-  remote_ip_prefix  = var.subnet_cidr
+  remote_ip_prefix  = data.pcd_networking_subnet.bgp.cidr
+}
+
+# Kept in its own group (rather than in the cluster group above) so HTTP
+# exposure can be attached to or detached from the node independently of the
+# Talos/Kubernetes control-plane rules.
+resource "pcd_networking_secgroup" "http" {
+  name        = "${var.cluster_name}-http"
+  description = "Inbound HTTP (80/tcp) to the ${var.cluster_name} cluster"
+}
+
+resource "pcd_networking_secgroup_rule" "http_ingress" {
+  security_group_id = pcd_networking_secgroup.http.id
+  description       = "Allow HTTP (80/tcp)"
+  direction         = "ingress"
+  ethertype         = "IPv6"
+  protocol          = "tcp"
+  port_range_min    = 80
+  port_range_max    = 80
+  remote_ip_prefix  = "::/0"
 }

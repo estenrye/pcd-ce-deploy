@@ -187,6 +187,9 @@ ipv6_dhcpv6_stateful_subnets = {
             end   = "fd97:45c2:b3a1:1179:ffff:ffff:ffff:ffff"
         }]
         dns_nameservers  = ["fd97:45c2:b3a1:64::64", "2606:4700:4700::64"]
+        # The Talos cluster lives entirely on this network, so it needs
+        # NAT66 egress for NTP, registries and Talos discovery.
+        tags             = ["nat66=true"]
     }
 }
 

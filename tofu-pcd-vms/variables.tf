@@ -244,6 +244,10 @@ variable "ipv6_dhcpv6_stateful_subnets" {
       end   = string
     })), [])
     dns_nameservers = optional(list(string), [])
+    # Neutron subnet tags. "nat66=true" is what unifi_ml2_driver looks for
+    # to create a NAT66 masquerade policy for the subnet -- without it the
+    # subnet gets its VLAN and firewall zone but no IPv6 internet egress.
+    tags = optional(list(string), [])
   }))
   default     = {}
 }
