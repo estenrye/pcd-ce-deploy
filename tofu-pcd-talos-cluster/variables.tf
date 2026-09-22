@@ -66,65 +66,6 @@ variable "onepassword_item_title" {
   default     = null
 }
 
-# --- Cluster network ---
-# Its own VLAN network + IPv6-only dhcpv6-stateful subnet, separate from
-# vlan1000-net in ../tofu-pcd-vms. neutron-ml2-guardian (deployed once,
-# cluster-wide, by ../tofu-pcd-vms/neutron_ml2_guardian.tf) watches every
-# VLAN network on physnet1 and syncs it to the UDM-SE -- NAT66 egress and
-# firewall-zone membership -- with no per-network configuration needed
-# here. See ../docs/pcd-cd/ipv6.md and
-# ../../neutron-ml2-guardian/docs/specs/2026-09-13-neutron-ml2-guardian-design.md.
-
-variable "physical_network" {
-  description = "Physical network label (as mapped in the PCD host config's network_labels) to create the cluster's VLAN segment on."
-  type        = string
-  default     = "physnet1"
-}
-
-variable "vlan_segmentation_id" {
-  description = "VLAN ID for the cluster network's provider segment. Must not collide with another VLAN network on the same physical_network (vlan1000-net in ../tofu-pcd-vms uses 1000)."
-  type        = number
-  default     = 1001
-}
-
-variable "subnet_cidr" {
-  description = "IPv6 ULA CIDR for the cluster subnet. Defaults to a /64 matching vlan_segmentation_id, following ../tofu-pcd-vms/terraform.tfvars's fd97:45c2:b3a1:<vlan-id>::/64 convention."
-  type        = string
-  default     = "fd97:45c2:b3a1:1001::/64"
-}
-
-variable "subnet_gateway_ip" {
-  description = "Gateway address within subnet_cidr (the UDM-SE, once neutron-ml2-guardian syncs this network)."
-  type        = string
-  default     = "fd97:45c2:b3a1:1001::1"
-}
-
-variable "subnet_allocation_pool" {
-  description = "DHCPv6 allocation range within subnet_cidr."
-  type = object({
-    start = string
-    end   = string
-  })
-  default = {
-    start = "fd97:45c2:b3a1:1001::2"
-    end   = "fd97:45c2:b3a1:1001:ffff:ffff:ffff:ffff"
-  }
-}
-
-variable "nat66_tag" {
-  description = <<-EOT
-    Subnet tag that marks this IPv6 subnet for NAT66 masquerade egress.
-    Must match unifi_ml2_driver's own `nat66_tag` config option (default,
-    and the driver's default: "nat66=true") -- an IPv6 subnet without
-    this exact tag still gets synced to UniFi and assigned to the
-    firewall zone, but never gets a NAT66 policy, which is
-    indistinguishable from the outside from total outbound
-    unreachability. See network_ipv6_stateful_subnet.tf.
-  EOT
-  type        = string
-  default     = "nat66=true"
-}
-
 variable "dns_nameservers" {
   description = <<-EOT
     DNS64 resolvers handed out over DHCPv6, so an IPv6-only node can still
@@ -134,6 +75,35 @@ variable "dns_nameservers" {
   EOT
   type        = list(string)
   default     = ["fd97:45c2:b3a1:64::64", "2606:4700:4700::64"]
+}
+
+# --- BGP network (owned by ../tofu-pcd-vms) ---
+
+variable "bgp_network_name" {
+  description = "Name of the existing network to attach the node's second NIC to for BGP peering."
+  type        = string
+  default     = "bgp-net"
+}
+
+variable "bgp_subnet_name" {
+  description = "Name of the existing subnet on bgp_network_name to allocate the node's BGP-facing address from."
+  type        = string
+  default     = "bgp-subnet-v6"
+}
+
+variable "bgp_secgroup_name" {
+  description = "Name of the existing security group applied to the node's bgp-net port."
+  type        = string
+  default     = "allow-bgp-icmp"
+}
+
+variable "bgp_vip_ranges" {
+  description = "Load-balancer VIP pool CIDRs announced over BGP; added as allowed address pairs on the node's bgp-net port so port security lets them through."
+  type        = list(string)
+  default = [
+    "2607:3640:1064:27f::1:0/112",
+    "fd97:45c2:b3a1:f00::1:0/112",
+  ]
 }
 
 # --- Talos cluster shape ---
@@ -163,7 +133,7 @@ variable "pod_subnet" {
     refuses to start at all if the service subnet's address family
     doesn't match the node's own (confirmed live, 2026-09-17). Any
     private range works since this is purely an internal overlay; a ULA
-    prefix distinct from subnet_cidr is used here just to keep node
+    prefix distinct from the bgp-net subnet is used here just to keep node
     addressing and pod addressing visually unambiguous.
   EOT
   type        = string

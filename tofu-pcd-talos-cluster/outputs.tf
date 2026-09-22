@@ -1,5 +1,5 @@
 output "controlplane_address" {
-  description = "IPv6 address of the control-plane node."
+  description = "IPv6 address of the control-plane node (on bgp-net; also its BGP source address)."
   value       = local.controlplane_address
 }
 

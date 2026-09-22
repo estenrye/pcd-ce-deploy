@@ -41,12 +41,12 @@ data "talos_machine_configuration" "controlplane" {
           # this subnet is built around.
           nameservers = var.dns_nameservers
         }
-        # Pin kubelet's advertised node address to the cluster subnet,
+        # Pin kubelet's advertised node address to the bgp-net subnet,
         # matching the pattern in
         # github.com/siderolabs/contrib's hcloud Terraform example.
         kubelet = {
           nodeIP = {
-            validSubnets = [var.subnet_cidr]
+            validSubnets = [data.pcd_networking_subnet.bgp.cidr]
           }
         }
       }

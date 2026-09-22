@@ -21,15 +21,24 @@ locals {
   # whatever bytes a URL returns verbatim, with no decompression, so that
   # URL can't be handed to pcd_images_image.image_source_url directly --
   # it's downloaded and decompressed locally instead
-  # (terraform_data.talos_image_download, below), and the resulting raw
-  # file uploaded via local_file_path.
-  talos_image_dir      = "${path.module}/.talos-image"
-  talos_image_raw_path = "${local.talos_image_dir}/disk.raw"
+  # (terraform_data.talos_image_download, below), and the resulting file
+  # uploaded via local_file_path.
+  #
+  # The decompressed raw disk is ~4.4GB but almost entirely zeros (the
+  # download is ~230MB), and uploading that over a weak Wi-Fi link took
+  # ~1 hour and then failed (nginx in front of Glance answered 408/400
+  # when the stream stalled -- 2026-09-21). So the raw file is converted to
+  # a compressed qcow2 with qemu-img and *that* is what gets uploaded.
+  talos_image_dir        = "${path.module}/.talos-image"
+  talos_image_raw_path   = "${local.talos_image_dir}/disk.raw"
+  talos_image_qcow2_path = "${local.talos_image_dir}/disk.qcow2"
 }
 
 resource "terraform_data" "talos_image_download" {
   triggers_replace = {
     url = data.talos_image_factory_urls.openstack.urls.disk_image
+    # Bump when the produced artifact changes so this re-runs.
+    format = "qcow2-compressed"
   }
 
   provisioner "local-exec" {
@@ -41,6 +50,10 @@ resource "terraform_data" "talos_image_download" {
         curl -fsSL '${data.talos_image_factory_urls.openstack.urls.disk_image}' -o .talos-image/disk.raw.xz
         xz -dkf .talos-image/disk.raw.xz
       fi
+      # Always rebuilt when this runs (it only runs on a URL/format change),
+      # so a stale qcow2 from an older Talos version can't be uploaded.
+      # -c compresses; the zero-filled raw disk shrinks to a few hundred MB.
+      qemu-img convert -f raw -O qcow2 -c .talos-image/disk.raw .talos-image/disk.qcow2
     EOT
   }
 }
@@ -48,8 +61,8 @@ resource "terraform_data" "talos_image_download" {
 resource "pcd_images_image" "talos" {
   name             = "talos-${var.talos_version}-openstack"
   container_format = "bare"
-  disk_format      = "raw"
-  local_file_path  = local.talos_image_raw_path
+  disk_format      = "qcow2"
+  local_file_path  = local.talos_image_qcow2_path
   min_disk_gb      = 5
   visibility       = "private"
 
