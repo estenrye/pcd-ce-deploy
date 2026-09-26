@@ -106,7 +106,29 @@ variable "bgp_vip_ranges" {
   ]
 }
 
+variable "pod_pool_cidrs" {
+  description = <<-EOT
+    CIDRs the CNI assigns pod IPs from, added as allowed address pairs on every
+    node port. Neutron port security otherwise drops traffic to or from an
+    address the port doesn't own, which breaks any pod traffic that crosses
+    nodes (host-to-pod and pod-to-pod) when the CNI routes natively instead of
+    encapsulating. Confirmed live 2026-09-26 with Calico (encapsulation
+    Never): cross-node pod-IP traffic timed out. This is Calico's IPPool
+    (files/cni-installation-v6.yaml's pods-v6), NOT var.pod_subnet, which only
+    tells Kubernetes what to allocate node podCIDRs from and currently
+    differs. Keep in sync with whichever pool the CNI really uses.
+  EOT
+  type        = list(string)
+  default     = ["fd00:db8:0:1100::/56"]
+}
+
 # --- Talos cluster shape ---
+
+variable "apid_allowed_prefixes" {
+  description = "IPv6 prefixes allowed to reach apid (50000/tcp), in addition to the bgp-net subnet itself. Must include wherever tofu/talosctl runs from: nodes boot into an unauthenticated maintenance API and have their config pushed to them from here."
+  type        = list(string)
+  default     = ["fd97:45c2:b3a1:101::/64", "fd92:b792:95e:db94::/64"]
+}
 
 variable "cluster_name" {
   description = "Talos/Kubernetes cluster name."
@@ -166,8 +188,56 @@ variable "cni_name" {
   }
 }
 
+variable "controlplane_count" {
+  description = "Number of control-plane nodes. Keep this odd (etcd quorum): 3 tolerates one node down."
+  type        = number
+  default     = 3
+
+  validation {
+    condition     = var.controlplane_count % 2 == 1 && var.controlplane_count >= 1
+    error_message = "controlplane_count must be a positive odd number (etcd quorum)."
+  }
+}
+
+variable "worker_count" {
+  description = "Number of dedicated worker nodes."
+  type        = number
+  default     = 3
+
+  validation {
+    condition     = var.worker_count >= 0
+    error_message = "worker_count must be >= 0."
+  }
+}
+
+variable "schedule_on_controlplanes" {
+  description = "Whether workloads may run on the control-plane nodes (Talos's cluster.allowSchedulingOnControlPlanes). Off by default now that there are dedicated workers; turn on if worker_count = 0."
+  type        = bool
+  default     = false
+}
+
+variable "reboot_after_first_config" {
+  description = "Reboot each node once after its first machine config is pushed, to drop the SLAAC address the kernel formed during the pre-config maintenance-mode boot (see talos.tf). Needs talosctl on the machine running tofu. Turn off if the SLAAC address is prevented some other way, e.g. an ipv6.autoconf=0 kernel argument in the image."
+  type        = bool
+  default     = true
+}
+
 variable "controlplane_flavor" {
-  description = "Compute flavor for the single control-plane node. 2 vCPU / 2GiB is Talos's documented controlplane floor; bumped to 4GiB here since this node also runs workloads (allowSchedulingOnControlPlanes) and 2GiB is known to be tight once etcd + the control-plane static pods + kubelet + CoreDNS are all resident."
+  description = "Compute flavor for each control-plane node. 2 vCPU / 2GiB is Talos's documented controlplane floor; 4GiB here since 2GiB is known to be tight once etcd + the control-plane static pods + kubelet + CoreDNS are all resident."
+  type = object({
+    vcpus = number
+    ram   = number
+    disk  = number
+  })
+  default = {
+    vcpus = 2
+    ram   = 4096
+    disk  = 20
+  }
+}
+
+variable "worker_flavor" {
+  description = "Compute flavor for each worker node."
   type = object({
     vcpus = number
     ram   = number

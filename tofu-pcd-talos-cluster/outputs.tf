@@ -1,11 +1,21 @@
-output "controlplane_address" {
-  description = "IPv6 address of the control-plane node (on bgp-net; also its BGP source address)."
-  value       = local.controlplane_address
+output "controlplane_addresses" {
+  description = "IPv6 addresses of the control-plane nodes (on bgp-net; also their BGP source addresses)."
+  value       = local.controlplane_addresses
+}
+
+output "worker_addresses" {
+  description = "IPv6 addresses of the worker nodes (on bgp-net)."
+  value       = local.worker_addresses
+}
+
+output "cluster_vip" {
+  description = "Floating control-plane VIP that the Kubernetes API endpoint points at."
+  value       = local.cluster_vip
 }
 
 output "cluster_endpoint" {
-  description = "Kubernetes API server endpoint."
-  value       = "https://[${local.controlplane_address}]:6443"
+  description = "Kubernetes API server endpoint (the control-plane VIP)."
+  value       = local.cluster_endpoint
 }
 
 output "talosconfig" {

@@ -43,8 +43,7 @@ spec:
 
     # Pick the node address on the BGP peering segment. Unambiguous because that
     # /64 carries nothing else (no SLAAC GUA, no floating VIP).
-    nodeAddressAutodetectionV6Cidrs:
-      - fd97:45c2:b3a1:1179::/64
+    nodeAddressAutodetectionV6Method: kubernetesInternalIP
 
     # BGPConfiguration (named "default") plus one BGPPeer per entry.
     bgp:
