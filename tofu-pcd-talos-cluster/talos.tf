@@ -41,6 +41,20 @@ data "talos_machine_configuration" "controlplane" {
           # this subnet is built around.
           nameservers = var.dns_nameservers
         }
+        # Spegel (https://spegel.dev/docs/getting-started/#talos) serves
+        # image layers out of containerd's content store, which Talos
+        # discards after unpacking by default. Talos merges *.part files
+        # from /etc/cri/conf.d into its generated containerd CRI config.
+        files = [
+          {
+            path    = "/etc/cri/conf.d/20-customization.part"
+            op      = "create"
+            content = <<-EOT
+              [plugins."io.containerd.cri.v1.images"]
+                discard_unpacked_layers = false
+            EOT
+          }
+        ]
         # Pin kubelet's advertised node address to the bgp-net subnet,
         # matching the pattern in
         # github.com/siderolabs/contrib's hcloud Terraform example.

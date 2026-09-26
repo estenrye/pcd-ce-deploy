@@ -111,7 +111,9 @@
       "Bash(find ~/src/pcd-ce-deploy -iname \"clouds.yaml\" -o -iname \"*openstackrc*\" 2>/dev/null; find ~ -maxdepth 2 -iname \"clouds.yaml\" 2>/dev/null; ls ~/src/pcd-ce-deploy/scripts | head -30)",
       "Bash(pipx list *)",
       "Bash(pip3 show *)",
-      "Bash(gh pr *)"
+      "Bash(gh pr *)",
+      "Bash(ssh ubuntu@pcd.rye.ninja 'sudo helm upgrade neutron-ml2-guardian oci://registry-1.docker.io/estenrye/neutron-ml2-guardian-chart --version 0.1.2 -n neutron-ml2-guardian --reuse-values --set dryRun=true --wait --timeout 3m')",
+      "Bash(ssh ubuntu@pcd.rye.ninja 'sudo helm upgrade neutron-ml2-guardian oci://registry-1.docker.io/estenrye/neutron-ml2-guardian-chart --version 0.1.2 -n neutron-ml2-guardian --reuse-values --set dryRun=false --wait --timeout 3m')"
     ],
     "additionalDirectories": [
       "/Users/esten/src/flux-platform-src/applications/crossplane-resources/xnetworksegment/examples",
