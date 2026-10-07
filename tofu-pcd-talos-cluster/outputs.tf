@@ -29,3 +29,8 @@ output "kubeconfig" {
   value       = talos_cluster_kubeconfig.this.kubeconfig_raw
   sensitive   = true
 }
+
+output "kms_key_id" {
+  description = "ID of the Barbican secret holding the cluster-secrets encryption key, or null when create_kms_key is false."
+  value       = one(pcd_keymanager_secret.kms_key[*].id)
+}

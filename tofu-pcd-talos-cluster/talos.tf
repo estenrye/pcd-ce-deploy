@@ -5,24 +5,6 @@ resource "talos_machine_secrets" "this" {
 locals {
   # Config shared by every node, control-plane and worker alike.
   common_machine = {
-    # Talos enables DHCPv4 on discovered interfaces by default but
-    # NOT DHCPv6 (disabled unless dhcpOptions.ipv6 is set) -- needed
-    # here since this network carries no IPv4 subnet at all. "eth0"
-    # is the conventional first-NIC name Talos assigns under
-    # QEMU/KVM (it doesn't run systemd/udev's predictable-naming
-    # scheme); if the node doesn't come up with an address, this is
-    # the first thing to check live via `talosctl get links` against
-    # its apid in maintenance mode.
-    network = {
-      # Without nameservers, Talos's host DNS resolver falls back to (or
-      # merges in) its own hardcoded public defaults -- confirmed
-      # live, 2026-09-16: console log showed it repeatedly trying
-      # 8.8.8.8:53, which can only ever fail on this IPv4-less
-      # network. Setting this statically overrides that, so the
-      # only servers Talos ever queries are the DNS64 resolvers
-      # this subnet is built around.
-      nameservers = var.dns_nameservers
-    }
     # Spegel (https://spegel.dev/docs/getting-started/#talos) serves
     # image layers out of containerd's content store, which Talos
     # discards after unpacking by default. Talos merges *.part files
@@ -37,14 +19,6 @@ locals {
         EOT
       }
     ]
-    # Pin kubelet's advertised node address to the bgp-net subnet,
-    # matching the pattern in
-    # github.com/siderolabs/contrib's hcloud Terraform example.
-    kubelet = {
-      nodeIP = {
-        validSubnets = [data.pcd_networking_subnet.bgp.cidr]
-      }
-    }
     # Stop SLAAC from adding a second global address (`...:f816:3eff:...`, derived
     # from the MAC) next to the DHCPv6-assigned one. The kernel prefers the SLAAC
     # address as the source of node-originated traffic, and the "all traffic from
@@ -68,13 +42,87 @@ locals {
   # etcd has formed needs a full reset, not a live config patch.
   # Workers need them too (kubelet derives its cluster DNS address
   # from the service subnet).
+  #
+  # This no longer includes `cni.name`: Talos folded CNI selection into
+  # whether a KubeFlannelCNIConfig document exists at all (see
+  # cni_config_patches) -- there's no longer a field for it here.
   common_cluster_network = {
     podSubnets     = [var.pod_subnet]
     serviceSubnets = [var.service_subnet]
-    cni = {
-      name = var.cni_name
-    }
   }
+
+  # Config documents that superseded parts of the legacy v1alpha1 config.
+  # Talos now hard-conflicts if the same setting is present both ways (see
+  # pkg/machinery/config/types/k8s/{node,network,kubelet,apiserver}.go and
+  # types/network/resolver.go's V1Alpha1ConflictValidate upstream), so these
+  # replace what used to be common_machine.network.nameservers and
+  # common_machine.kubelet, and cluster.network below. Common to every node.
+  common_config_patches = [
+    # Supersedes `.machine.network.nameservers`. Without nameservers, Talos's
+    # host DNS resolver falls back to (or merges in) its own hardcoded public
+    # defaults -- confirmed live, 2026-09-16: console log showed it
+    # repeatedly trying 8.8.8.8:53, which can only ever fail on this
+    # IPv4-less network. Setting this statically overrides that, so the only
+    # servers Talos ever queries are the DNS64 resolvers this subnet is
+    # built around.
+    yamlencode({
+      apiVersion  = "v1alpha1"
+      kind        = "ResolverConfig"
+      nameservers = [for ns in var.dns_nameservers : { address = ns }]
+    }),
+    # Supersedes `.machine.kubelet.nodeIP` -- pins kubelet's advertised node
+    # address to the bgp-net subnet, matching the pattern in
+    # github.com/siderolabs/contrib's hcloud Terraform example.
+    yamlencode({
+      apiVersion = "v1alpha1"
+      kind       = "KubeNodeConfig"
+      nodeIP = {
+        validSubnets = [data.pcd_networking_subnet.bgp.cidr]
+      }
+    }),
+    # Supersedes `.cluster.network.{podSubnets,serviceSubnets}`.
+    yamlencode(merge({
+      apiVersion = "v1alpha1"
+      kind       = "KubeNetworkConfig"
+    }, local.common_cluster_network)),
+    # Still a plain (unmigrated) v1alpha1 field, not a separate document.
+    # Sets kubelet's --cloud-provider=external on every node, for
+    # openstack-cloud-controller-manager (see
+    # openstack-cloud-controller-manger.tf). Nodes register with the
+    # node.cloudprovider.kubernetes.io/uninitialized taint (and get properly
+    # cloud-initialized by OCCM) only if this is already set at first kubelet
+    # registration -- kubelet doesn't retroactively taint an already-existing
+    # Node object, and OCCM's node controller treats an untainted node as
+    # already-initialized and skips it. Chosen to build this cluster fresh
+    # with the flag on from the start, rather than cordon+drain+`kubectl
+    # delete node`+rejoin each of the 6 already-running nodes to force
+    # re-registration.
+    #
+    # `manifests` (for auto-deploying the CCM daemonset) is intentionally
+    # left unset: Talos only applies it "as part of the bootstrap", and this
+    # cluster deploys OCCM itself via the cloud-config Secret + Helm values
+    # already built in openstack-cloud-controller-manger.tf.
+    yamlencode({
+      cluster = {
+        externalCloudProvider = {
+          enabled = true
+        }
+      }
+    }),
+  ]
+
+  # var.cni_name used to select `.cluster.network.cni.name`; that field no
+  # longer exists. Talos's generated config always includes a
+  # KubeFlannelCNIConfig document by default, so "flannel" needs no patch,
+  # and anything else (here, the default "none", since this cluster installs
+  # its own CNI separately) needs that document explicitly deleted.
+  cni_config_patches = var.cni_name == "flannel" ? [] : [
+    yamlencode({
+      apiVersion = "v1alpha1"
+      kind       = "KubeFlannelCNIConfig"
+      "$patch"   = "delete"
+    })
+  ]
 }
 
 data "talos_machine_configuration" "controlplane" {
@@ -85,10 +133,10 @@ data "talos_machine_configuration" "controlplane" {
   talos_version      = var.talos_version
   kubernetes_version = var.kubernetes_version
 
-  config_patches = [
+  config_patches = concat(local.common_config_patches, local.cni_config_patches, [
     yamlencode({
       machine = merge(local.common_machine, {
-        network = merge(local.common_machine.network, {
+        network = {
           interfaces = [
             {
               interface = "eth0"
@@ -106,19 +154,34 @@ data "talos_machine_configuration" "controlplane" {
               }
             }
           ]
-        })
-      })
-      cluster = {
-        allowSchedulingOnControlPlanes = var.schedule_on_controlplanes
-        # The endpoint host is added to the API server cert SANs by
-        # config generation already; stated explicitly so it can't be lost.
-        apiServer = {
-          certSANs = [local.cluster_vip]
         }
-        network = local.common_cluster_network
-      }
-    })
-  ]
+      })
+    }),
+    # Supersedes `.cluster.apiServer.certSANs` (renamed certExtraSANs). The
+    # endpoint host is added to the API server cert SANs by config
+    # generation already; stated explicitly so it can't be lost.
+    #
+    # allowSchedulingOnControlPlanes has no document-patch equivalent at
+    # all: Talos folded it into a generation-time option
+    # (generate.Options.AllowSchedulingOnControlPlanes) that this provider's
+    # talos_machine_configuration data source doesn't expose. The base
+    # generated config already defaults to the same behavior as
+    # var.schedule_on_controlplanes = false (a NoSchedule taint via
+    # KubeNodeConfig), which is enforced by that variable's validation --
+    # see its definition in variables.tf for what flipping it to true would
+    # need.
+    #
+    # With the Barbican KMS key on, this document can't be used: it has no
+    # extraVolumes, and the legacy .cluster.apiServer needed for the KMS
+    # socket mount hard-conflicts with it. kms.tf deletes the document and
+    # sets the same SAN through the legacy field instead.
+    ], var.create_kms_key ? local.kms_controlplane_patches : [
+    yamlencode({
+      apiVersion    = "v1alpha1"
+      kind          = "KubeAPIServerConfig"
+      certExtraSANs = [local.cluster_vip]
+    }),
+  ])
 }
 
 data "talos_machine_configuration" "worker" {
@@ -129,10 +192,10 @@ data "talos_machine_configuration" "worker" {
   talos_version      = var.talos_version
   kubernetes_version = var.kubernetes_version
 
-  config_patches = [
+  config_patches = concat(local.common_config_patches, local.cni_config_patches, [
     yamlencode({
       machine = merge(local.common_machine, {
-        network = merge(local.common_machine.network, {
+        network = {
           interfaces = [
             {
               interface = "eth0"
@@ -143,13 +206,10 @@ data "talos_machine_configuration" "worker" {
               }
             }
           ]
-        })
+        }
       })
-      cluster = {
-        network = local.common_cluster_network
-      }
-    })
-  ]
+    }),
+  ])
 }
 
 data "talos_client_configuration" "this" {
@@ -345,6 +405,7 @@ data "talos_cluster_health" "this" {
     talos_machine_bootstrap.this,
     talos_machine_configuration_apply.worker,
     terraform_data.reboot_worker,
+    terraform_data.reboot_controlplane_kms,
   ]
 }
 

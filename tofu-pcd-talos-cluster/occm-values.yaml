@@ -1,0 +1,12 @@
+"cloudConfig":
+  "global":
+    "application-credential-id": "33126d40ef014df698bc34a5d548d9cd"
+    "application-credential-secret": "en8PdVfB6YaMVvJyflyVWSAG_HdGVG6h86pi8hW2SmLydQzAp-ng26NoSI2yyiKh8kStcMvHNhQrEJNr5Hmd6w"
+    "auth-url": "https://pcd.rye.ninja/keystone/v3"
+    "region": "Infra"
+  "loadBalancer":
+    "create-monitor": true
+    "floating-network-id": "2261dbba-5245-4333-a22d-c502ce25ed44"
+    "lb-method": "SOURCE_IP_PORT"
+    "lb-provider": "ovn"
+    "subnet-id": "e9471441-a65a-4ec8-90a4-70d1a395fa82"

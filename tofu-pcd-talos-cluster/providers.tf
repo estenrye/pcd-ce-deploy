@@ -29,3 +29,13 @@ provider "pcd" {
 # Stateless: all auth material (client_configuration) is passed explicitly
 # into each talos_* resource/data source below, not held by the provider.
 provider "talos" {}
+
+# Talos's client cert/key/CA come back base64-encoded (they're meant for
+# embedding straight into a kubeconfig file); the kubernetes provider's
+# fields want raw PEM instead.
+provider "kubernetes" {
+  host                   = talos_cluster_kubeconfig.this.kubernetes_client_configuration.host
+  client_certificate     = base64decode(talos_cluster_kubeconfig.this.kubernetes_client_configuration.client_certificate)
+  client_key             = base64decode(talos_cluster_kubeconfig.this.kubernetes_client_configuration.client_key)
+  cluster_ca_certificate = base64decode(talos_cluster_kubeconfig.this.kubernetes_client_configuration.ca_certificate)
+}

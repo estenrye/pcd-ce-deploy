@@ -66,6 +66,18 @@ variable "onepassword_item_title" {
   default     = null
 }
 
+variable "onepassword_occm_item_title" {
+  description = "Title of the 1Password Login item holding the OpenStack CCM service account credentials."
+  type        = string
+  default     = null
+}
+
+variable "floating_network_subnet_name" {
+  description = "Name of the existing subnet on the floating network to allocate floating IPs from."
+  type        = string
+  default     = null
+}
+
 variable "dns_nameservers" {
   description = <<-EOT
     DNS64 resolvers handed out over DHCPv6, so an IPv6-only node can still
@@ -214,6 +226,18 @@ variable "schedule_on_controlplanes" {
   description = "Whether workloads may run on the control-plane nodes (Talos's cluster.allowSchedulingOnControlPlanes). Off by default now that there are dedicated workers; turn on if worker_count = 0."
   type        = bool
   default     = false
+
+  validation {
+    # Talos moved this to a generation-time option
+    # (generate.Options.AllowSchedulingOnControlPlanes) that this provider's
+    # talos_machine_configuration data source doesn't expose (see talos.tf's
+    # common_config_patches). Flipping this to true would need a
+    # KubeNodeConfig.taints patch clearing the auto-added control-plane
+    # NoSchedule taint instead, which isn't implemented yet -- fail loudly
+    # rather than silently ignore the setting.
+    condition     = !var.schedule_on_controlplanes
+    error_message = "schedule_on_controlplanes = true is not currently wired up in talos.tf; see this variable's comment."
+  }
 }
 
 variable "reboot_after_first_config" {
@@ -248,4 +272,35 @@ variable "worker_flavor" {
     ram   = 4096
     disk  = 20
   }
+}
+
+# --- Barbican KMS key ---
+
+variable "create_kms_key" {
+  description = "Create a Barbican symmetric key for encrypting the cluster's secrets (e.g. Kubernetes secrets at rest via a KMS provider). Its Barbican secret ID is exposed as the kms_key_id output."
+  type        = bool
+  default     = false
+}
+
+variable "kms_key_name" {
+  description = "Name of the Barbican secret. Defaults to \"<cluster_name>-secrets-kms\"."
+  type        = string
+  default     = null
+}
+
+variable "kms_key_bit_length" {
+  description = "Bit length of the AES key. 256 gives AES-256."
+  type        = number
+  default     = 256
+
+  validation {
+    condition     = contains([128, 192, 256], var.kms_key_bit_length)
+    error_message = "kms_key_bit_length must be 128, 192, or 256."
+  }
+}
+
+variable "kms_plugin_version" {
+  description = "Tag of registry.k8s.io/provider-os/barbican-kms-plugin to run on the control-plane nodes (cloud-provider-openstack release; KMS v2 support is required)."
+  type        = string
+  default     = "v1.36.0"
 }

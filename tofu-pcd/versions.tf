@@ -12,6 +12,10 @@ terraform {
       source  = "1Password/onepassword"
       version = "~> 3.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
     assert-cidr = {
       source  = "registry.terraform.io/BehnH/assert"
       version = "0.1.0"
