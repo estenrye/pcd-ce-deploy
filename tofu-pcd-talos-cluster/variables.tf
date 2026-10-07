@@ -400,3 +400,45 @@ variable "occm_version" {
   type        = string
   default     = "v1.36.0"
 }
+
+variable "cinder_csi_version" {
+  description = "cloud-provider-openstack release (git tag, e.g. v1.36.0) whose manifests/cinder-csi-plugin/*.yaml are added to the cluster's extraManifests."
+  type        = string
+  default     = "v1.36.0"
+}
+
+variable "cinder_storage_classes" {
+  description = <<-EOT
+    StorageClasses for provisioner cinder.csi.openstack.org, keyed by name.
+    The defaults match the upstream cinder-csi-plugin chart (a Delete and a
+    Retain class, neither the cluster default, no parameters). At most one
+    class should set is_default. parameters are passed straight to the driver
+    (e.g. type = "<cinder volume type>", availability = "<az>").
+  EOT
+  type = map(object({
+    reclaim_policy         = string
+    is_default             = optional(bool, false)
+    allow_volume_expansion = optional(bool, true)
+    volume_binding_mode    = optional(string, "Immediate")
+    parameters             = optional(map(string), {})
+  }))
+  default = {
+    "csi-cinder-sc-delete" = { reclaim_policy = "Delete" }
+    "csi-cinder-sc-retain" = { reclaim_policy = "Retain" }
+  }
+
+  validation {
+    condition     = length([for sc in values(var.cinder_storage_classes) : sc if sc.is_default]) <= 1
+    error_message = "At most one cinder_storage_classes entry may set is_default."
+  }
+  validation {
+    condition     = alltrue([for sc in values(var.cinder_storage_classes) : contains(["Delete", "Retain"], sc.reclaim_policy)])
+    error_message = "cinder_storage_classes[*].reclaim_policy must be Delete or Retain."
+  }
+}
+
+variable "cinder_availability_zone" {
+  description = "Cinder availability zone set as the `availability` parameter on every cinder_storage_classes entry. A class can override it through its own parameters. Empty omits the parameter."
+  type        = string
+  default     = "pcd-ce-lab"
+}

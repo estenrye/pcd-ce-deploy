@@ -120,6 +120,16 @@ locals {
           "https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/${var.occm_version}/manifests/controller-manager/cloud-controller-manager-roles.yaml",
           "https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/${var.occm_version}/manifests/controller-manager/cloud-controller-manager-role-bindings.yaml",
           "https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/${var.occm_version}/manifests/controller-manager/openstack-cloud-controller-manager-ds.yaml",
+          # Cinder CSI: the CSIDriver object, the controller Deployment
+          # (attacher/provisioner/snapshotter/resizer sidecars) and the node
+          # DaemonSet that formats and mounts the attached volume. Both read
+          # the same cloud-config Secret as OCCM. No StorageClass is shipped
+          # here.
+          "https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/${var.cinder_csi_version}/manifests/cinder-csi-plugin/csi-cinder-driver.yaml",
+          "https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/${var.cinder_csi_version}/manifests/cinder-csi-plugin/cinder-csi-controllerplugin-rbac.yaml",
+          "https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/${var.cinder_csi_version}/manifests/cinder-csi-plugin/cinder-csi-controllerplugin.yaml",
+          "https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/${var.cinder_csi_version}/manifests/cinder-csi-plugin/cinder-csi-nodeplugin-rbac.yaml",
+          "https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/${var.cinder_csi_version}/manifests/cinder-csi-plugin/cinder-csi-nodeplugin.yaml",
         ]
       }
     }),
@@ -152,9 +162,9 @@ data "talos_machine_configuration" "controlplane" {
     # extraManifests, Talos re-applies these when their contents change.
     yamlencode({
       cluster = {
-        inlineManifests = [for name in sort(keys(local.calico_inline_manifests)) : {
+        inlineManifests = [for name in sort(keys(local.inline_manifests)) : {
           name     = name
-          contents = local.calico_inline_manifests[name]
+          contents = local.inline_manifests[name]
         }]
       }
     }),
