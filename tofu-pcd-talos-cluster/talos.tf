@@ -107,6 +107,12 @@ locals {
         externalCloudProvider = {
           enabled = true
         }
+        # Fetched and applied by Talos itself during bootstrap (control
+        # plane only; workers ignore it). Like `manifests`, it is only
+        # applied as part of the bootstrap, not on later config edits.
+        extraManifests = [
+          "https://raw.githubusercontent.com/projectcalico/calico/${var.calico_version}/manifests/tigera-operator.yaml",
+        ]
       }
     }),
   ]

@@ -160,6 +160,12 @@ variable "kubernetes_version" {
   default     = "v1.37.0"
 }
 
+variable "calico_version" {
+  description = "Calico release (git tag, e.g. v3.31.0) whose manifests/tigera-operator.yaml is added to the cluster's extraManifests."
+  type        = string
+  default     = "v3.31.0"
+}
+
 variable "pod_subnet" {
   description = <<-EOT
     IPv6 CIDR for the in-cluster pod overlay network. Must be IPv6 -- see
