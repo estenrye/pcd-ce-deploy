@@ -6,3 +6,4 @@ crash.log
 crash.*.log
 plan.out
 .talos-image/
+occm-values.yaml

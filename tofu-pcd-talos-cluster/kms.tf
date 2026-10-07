@@ -180,10 +180,32 @@ resource "terraform_data" "reboot_controlplane_kms" {
       printf '%s' "$TALOSCONFIG_CONTENT" > "$cfg"
       for node in ${join(" ", local.controlplane_addresses)}; do
         echo "rebooting $node"
-        talosctl --talosconfig "$cfg" -n "$node" -e "$node" reboot --wait --timeout 10m
+        # No --wait: it blocks on the Kubernetes endpoint and can hang even
+        # with the node fully back. Poll apid down/up, then etcd, ourselves.
+        tctl() { talosctl --talosconfig "$cfg" -n "$node" -e "$node" "$@"; }
+        tctl reboot --wait=false
+        for _ in $(seq 60); do
+          tctl version >/dev/null 2>&1 || break
+          sleep 2
+        done
+        # etcd must be healthy again before the next node goes down, or two
+        # of three members are out and quorum is lost.
+        etcd_ok=0
+        for _ in $(seq 120); do
+          svc=$(tctl service etcd 2>/dev/null || true)
+          # `service etcd` prints STATE and HEALTH on separate lines.
+          if grep -qE '^STATE +Running' <<<"$svc" && grep -qE '^HEALTH +OK' <<<"$svc"; then
+            etcd_ok=1
+            break
+          fi
+          sleep 5
+        done
+        [ "$etcd_ok" = 1 ] || { echo "etcd never became healthy on $node" >&2; exit 1; }
         # Wait for the plugin to recreate its socket before touching the next node.
         for _ in $(seq 60); do
-          if talosctl --talosconfig "$cfg" -n "$node" -e "$node" ls ${local.kms_socket_dir} 2>/dev/null | grep -q 'kms.sock'; then
+          # Captured, not piped to grep -q: SIGPIPE + pipefail fails the pipeline on a match.
+          socks=$(talosctl --talosconfig "$cfg" -n "$node" -e "$node" ls ${local.kms_socket_dir} 2>/dev/null || true)
+          if grep -q 'kms.sock' <<<"$socks"; then
             continue 2
           fi
           sleep 5

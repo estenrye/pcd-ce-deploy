@@ -151,7 +151,7 @@ variable "cluster_name" {
 variable "talos_version" {
   description = "Exact Talos release to boot (e.g. v1.14.0). Drives the Image Factory download and the machine config's contract version -- see talos.tf."
   type        = string
-  default     = "v1.14.0"
+  default     = "v1.14.1"
 }
 
 variable "kubernetes_version" {

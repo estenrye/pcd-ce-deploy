@@ -303,6 +303,60 @@ resource "talos_machine_configuration_apply" "worker" {
   ]
 }
 
+locals {
+  # Reboots the node in $NODE once its first config is live, then waits for
+  # apid to answer again. Shared by the control-plane and worker reboots.
+  #
+  # Output is captured into variables rather than piped to `grep -q`: under
+  # pipefail grep exits on the first match, the writer dies of SIGPIPE, and
+  # the pipeline reports failure even though the text matched.
+  reboot_node_script = <<-EOT
+    set -euo pipefail
+    command -v talosctl >/dev/null || { echo "talosctl not found in PATH" >&2; exit 1; }
+    cfg=$(mktemp)
+    trap 'rm -f "$cfg"' EXIT
+    printf '%s' "$TALOSCONFIG_CONTENT" > "$cfg"
+    node="$NODE"
+    tctl() { talosctl --talosconfig "$cfg" -n "$node" -e "$node" "$@"; }
+
+    # The apply call returns as soon as the config is accepted, while the
+    # node is still provisioning (EPHEMERAL partition, config persist). A
+    # reboot in that window comes back in maintenance mode with no config.
+    # An authenticated call only works once the config is live, and
+    # EPHEMERAL being ready means first-boot provisioning is done.
+    settled=0
+    for _ in $(seq 60); do
+      if tctl version >/dev/null 2>&1; then
+        vol=$(tctl get volumestatus EPHEMERAL -o yaml 2>/dev/null || true)
+        if grep -q 'phase: ready' <<<"$vol"; then
+          settled=1
+          break
+        fi
+      fi
+      sleep 5
+    done
+    [ "$settled" = 1 ] || { echo "$node never finished first-boot provisioning" >&2; exit 1; }
+    sleep 10
+
+    # No --wait: it also waits for the Kubernetes API, which can't come up
+    # until talos_machine_bootstrap runs, and that depends on the control
+    # plane reboots. Wait for apid to go down and come back instead.
+    tctl reboot --wait=false
+    for _ in $(seq 60); do
+      tctl version >/dev/null 2>&1 || break
+      sleep 2
+    done
+    for _ in $(seq 120); do
+      if tctl version >/dev/null 2>&1; then
+        exit 0
+      fi
+      sleep 5
+    done
+    echo "$node did not come back after reboot" >&2
+    exit 1
+  EOT
+}
+
 # One reboot per instance, right after its first config push. A node boots
 # into maintenance mode before it has any machine config, and during that
 # window the kernel forms a SLAAC address (`...:f816:3eff:...`) next to the
@@ -320,8 +374,8 @@ resource "talos_machine_configuration_apply" "worker" {
 #
 # On a fresh build the reboots can run in parallel (etcd isn't bootstrapped
 # yet). Adding this to an *already running* cluster reboots every existing
-# node once, so apply that with `-parallelism=1`: `--wait` then makes each
-# reboot finish before the next starts, instead of taking all three
+# node once, so apply that with `-parallelism=1`: each reboot then finishes
+# (apid answering again) before the next starts, instead of taking all three
 # control-plane nodes (and etcd quorum) down together.
 resource "terraform_data" "reboot_controlplane" {
   count = var.reboot_after_first_config ? var.controlplane_count : 0
@@ -332,16 +386,10 @@ resource "terraform_data" "reboot_controlplane" {
 
   provisioner "local-exec" {
     interpreter = ["/bin/bash", "-c"]
-    command     = <<-EOT
-      set -euo pipefail
-      command -v talosctl >/dev/null || { echo "talosctl not found in PATH" >&2; exit 1; }
-      cfg=$(mktemp)
-      trap 'rm -f "$cfg"' EXIT
-      printf '%s' "$TALOSCONFIG_CONTENT" > "$cfg"
-      talosctl --talosconfig "$cfg" -n ${local.controlplane_addresses[count.index]} -e ${local.controlplane_addresses[count.index]} reboot --wait --timeout 10m
-    EOT
+    command     = local.reboot_node_script
     environment = {
       TALOSCONFIG_CONTENT = nonsensitive(data.talos_client_configuration.this.talos_config)
+      NODE                = local.controlplane_addresses[count.index]
     }
   }
 
@@ -357,16 +405,10 @@ resource "terraform_data" "reboot_worker" {
 
   provisioner "local-exec" {
     interpreter = ["/bin/bash", "-c"]
-    command     = <<-EOT
-      set -euo pipefail
-      command -v talosctl >/dev/null || { echo "talosctl not found in PATH" >&2; exit 1; }
-      cfg=$(mktemp)
-      trap 'rm -f "$cfg"' EXIT
-      printf '%s' "$TALOSCONFIG_CONTENT" > "$cfg"
-      talosctl --talosconfig "$cfg" -n ${local.worker_addresses[count.index]} -e ${local.worker_addresses[count.index]} reboot --wait --timeout 10m
-    EOT
+    command     = local.reboot_node_script
     environment = {
       TALOSCONFIG_CONTENT = nonsensitive(data.talos_client_configuration.this.talos_config)
+      NODE                = local.worker_addresses[count.index]
     }
   }
 

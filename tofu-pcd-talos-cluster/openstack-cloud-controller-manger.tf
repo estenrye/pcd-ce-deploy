@@ -108,7 +108,10 @@ resource "kubernetes_secret_v1" "cloud_config" {
     "cloud.conf" = local.occm_cloud_conf
   }
 
-  depends_on = [data.talos_cluster_health.this]
+  depends_on = [
+    data.talos_cluster_health.this,
+    pcd_compute_instance.controlplane
+  ]
 }
 
 output "application_credential_id" {
