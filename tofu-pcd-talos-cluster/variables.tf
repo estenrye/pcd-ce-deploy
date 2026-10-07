@@ -204,6 +204,23 @@ variable "calico_load_balancer_pools" {
   ]
 }
 
+variable "envoy_proxy_pools" {
+  description = "Names of the calico_load_balancer_pools entries the EnvoyProxy Services draw VIPs from (projectcalico.org/ipv6pools annotation): ingress for custom-proxy-config and external-dedicated-proxy-config, internal for internal-proxy-config and internal-dedicated-proxy-config."
+  type = object({
+    ingress  = optional(string, "lb-ingress-routed")
+    internal = optional(string, "lb-internal-routed")
+  })
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for n in [var.envoy_proxy_pools.ingress, var.envoy_proxy_pools.internal] :
+      contains([for p in var.calico_load_balancer_pools : p.name], n)
+    ])
+    error_message = "envoy_proxy_pools names must each match a calico_load_balancer_pools entry."
+  }
+}
+
 variable "calico_default_deny_policy" {
   description = <<-EOT
     Render the deny-app-policy GlobalNetworkPolicy: deny all ingress and egress
@@ -245,9 +262,9 @@ variable "kubernetes_version" {
 }
 
 variable "calico_version" {
-  description = "Calico release (git tag, e.g. v3.31.0) whose manifests/tigera-operator.yaml is added to the cluster's extraManifests."
+  description = "Calico release (git tag, e.g. v3.32.1) whose manifests/tigera-operator.yaml is added to the cluster's extraManifests. Needs 3.32 or later for the GatewayAPI resource: v3.31.0's operator lacks RBAC to update the xbackendtrafficpolicies CRD."
   type        = string
-  default     = "v3.31.0"
+  default     = "v3.32.1"
 }
 
 variable "pod_subnet" {
@@ -475,5 +492,42 @@ variable "cinder_volume_snapshot_classes" {
   validation {
     condition     = alltrue([for v in values(var.cinder_volume_snapshot_classes) : contains(["Delete", "Retain"], v.deletion_policy)])
     error_message = "cinder_volume_snapshot_classes[*].deletion_policy must be Delete or Retain."
+  }
+}
+
+variable "gateway_classes" {
+  description = <<-EOT
+    GatewayClasses to provision, keyed by name, rendered into the operator's
+    GatewayAPI resource (spec.gatewayClasses; see calico.tf). The tigera
+    operator creates each GatewayClass itself, with a copy of the referenced
+    EnvoyProxy in the tigera-gateway namespace. envoy_proxy_ref is the base
+    EnvoyProxy (see local.envoy_proxies in calico.tf); omit it to start from an
+    empty one. gateway_kind is Deployment or DaemonSet.
+  EOT
+  type = map(object({
+    envoy_proxy_ref = optional(object({
+      name      = string
+      namespace = string
+    }))
+    gateway_kind = optional(string)
+  }))
+  default = {
+    "external-merged" = {
+      envoy_proxy_ref = { name = "custom-proxy-config", namespace = "envoy-gateway-system" }
+    }
+    "internal-merged" = {
+      envoy_proxy_ref = { name = "internal-proxy-config", namespace = "envoy-gateway-system" }
+    }
+    "external-dedicated" = {
+      envoy_proxy_ref = { name = "external-dedicated-proxy-config", namespace = "envoy-gateway-system" }
+    }
+    "internal-dedicated" = {
+      envoy_proxy_ref = { name = "internal-dedicated-proxy-config", namespace = "envoy-gateway-system" }
+    }
+  }
+
+  validation {
+    condition     = alltrue([for gc in values(var.gateway_classes) : gc.gateway_kind == null || contains(["Deployment", "DaemonSet"], gc.gateway_kind)])
+    error_message = "gateway_classes[*].gateway_kind must be Deployment or DaemonSet."
   }
 }

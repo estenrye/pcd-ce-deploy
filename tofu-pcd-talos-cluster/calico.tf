@@ -131,14 +131,157 @@ locals {
     }
   }]
 
+  # Without an APIServer resource the operator can't manage IP pools (the
+  # ippools TigeraStatus goes Degraded: "Unable to modify IP pools while
+  # Calico API server is unavailable"). It deploys calico-apiserver, which
+  # serves the projectcalico.org/v3 API.
+  calico_apiserver = {
+    apiVersion = "operator.tigera.io/v1"
+    kind       = "APIServer"
+    metadata   = { name = "default" }
+    spec       = {}
+  }
+
+  # Has the tigera operator install and manage the Gateway API CRDs and the
+  # Envoy-based Calico gateway controller.
+  calico_gateway_api = {
+    apiVersion = "operator.tigera.io/v1"
+    kind       = "GatewayAPI"
+    metadata   = { name = "default" }
+    spec = {
+      gatewayClasses = [for name, gc in var.gateway_classes : merge(
+        { name = name },
+        gc.envoy_proxy_ref == null ? {} : { envoyProxyRef = gc.envoy_proxy_ref },
+        gc.gateway_kind == null ? {} : { gatewayKind = gc.gateway_kind },
+      )]
+    }
+  }
+
+  # Namespace for the EnvoyProxy resources the GatewayClasses reference
+  # (var.gateway_classes envoy_proxy_ref); nothing else creates it.
+  envoy_gateway_namespace = {
+    apiVersion = "v1"
+    kind       = "Namespace"
+    metadata   = { name = "envoy-gateway-system" }
+  }
+
+  envoy_proxies = [
+    {
+      apiVersion = "gateway.envoyproxy.io/v1alpha1"
+      kind       = "EnvoyProxy"
+      metadata   = { name = "custom-proxy-config", namespace = "envoy-gateway-system" }
+      spec = {
+        ipFamily      = "IPv6"
+        mergeGateways = true
+        provider = {
+          type = "Kubernetes"
+          kubernetes = {
+            envoyDeployment = {
+              replicas = 2
+              strategy = {
+                type          = "RollingUpdate"
+                rollingUpdate = { maxSurge = 0, maxUnavailable = 1 }
+              }
+              pod = {
+                affinity = {
+                  podAntiAffinity = {
+                    requiredDuringSchedulingIgnoredDuringExecution = [{
+                      labelSelector = {
+                        matchLabels = { "gateway.envoyproxy.io/owning-gatewayclass" = "external-merged" }
+                      }
+                      topologyKey = "kubernetes.io/hostname"
+                    }]
+                  }
+                }
+                tolerations = [{
+                  key      = "node-role.kubernetes.io/control-plane"
+                  operator = "Exists"
+                  effect   = "NoSchedule"
+                }]
+              }
+            },
+            envoyService = {
+              annotations           = { "projectcalico.org/ipv6pools" = jsonencode([var.envoy_proxy_pools.ingress]) }
+              externalTrafficPolicy = "Cluster"
+            }
+          }
+        }
+      }
+    },
+    {
+      apiVersion = "gateway.envoyproxy.io/v1alpha1"
+      kind       = "EnvoyProxy"
+      metadata   = { name = "internal-proxy-config", namespace = "envoy-gateway-system" }
+      spec = {
+        ipFamily      = "IPv6"
+        mergeGateways = true
+        provider = {
+          type = "Kubernetes"
+          kubernetes = {
+            envoyDeployment = { replicas = 2 }
+            envoyService = {
+              annotations           = { "projectcalico.org/ipv6pools" = jsonencode([var.envoy_proxy_pools.internal]) }
+              externalTrafficPolicy = "Cluster"
+            }
+          }
+        }
+      }
+    },
+    # Dedicated classes: mergeGateways false gives every Gateway object its own
+    # proxy Deployment and Service (and so its own VIP) instead of sharing one
+    # per class.
+    {
+      apiVersion = "gateway.envoyproxy.io/v1alpha1"
+      kind       = "EnvoyProxy"
+      metadata   = { name = "external-dedicated-proxy-config", namespace = "envoy-gateway-system" }
+      spec = {
+        ipFamily      = "IPv6"
+        mergeGateways = false
+        provider = {
+          type = "Kubernetes"
+          kubernetes = {
+            envoyDeployment = { replicas = 2 }
+            envoyService = {
+              annotations           = { "projectcalico.org/ipv6pools" = jsonencode([var.envoy_proxy_pools.ingress]) }
+              externalTrafficPolicy = "Cluster"
+            }
+          }
+        }
+      }
+    },
+    {
+      apiVersion = "gateway.envoyproxy.io/v1alpha1"
+      kind       = "EnvoyProxy"
+      metadata   = { name = "internal-dedicated-proxy-config", namespace = "envoy-gateway-system" }
+      spec = {
+        ipFamily      = "IPv6"
+        mergeGateways = false
+        provider = {
+          type = "Kubernetes"
+          kubernetes = {
+            envoyDeployment = { replicas = 2 }
+            envoyService = {
+              annotations           = { "projectcalico.org/ipv6pools" = jsonencode([var.envoy_proxy_pools.internal]) }
+              externalTrafficPolicy = "Cluster"
+            }
+          }
+        }
+      }
+    },
+  ]
+
   # Talos inline manifest name => rendered YAML. Names are sorted by Talos,
   # so the Installation sorts ahead of the CRD-backed resources.
   calico_inline_manifests = merge(
     { "calico-00-installation" = yamlencode(local.calico_installation) },
+    { "calico-05-apiserver" = yamlencode(local.calico_apiserver) },
     { "calico-10-bgp-configuration" = yamlencode(local.calico_bgp_configuration) },
     { for m in local.calico_bgp_peers : "calico-20-bgp-peer-${m.metadata.name}" => yamlencode(m) },
     { for m in local.calico_pod_ip_pools : "calico-30-ippool-${m.metadata.name}" => yamlencode(m) },
     { for m in local.calico_lb_ip_pools : "calico-40-ippool-${m.metadata.name}" => yamlencode(m) },
     { for m in local.calico_default_deny_policy : "calico-50-globalnetworkpolicy-${m.metadata.name}" => yamlencode(m) },
+    { "calico-60-gatewayapi" = yamlencode(local.calico_gateway_api) },
+    { "calico-65-envoy-gateway-namespace" = yamlencode(local.envoy_gateway_namespace) },
+    { for m in local.envoy_proxies : "calico-66-envoyproxy-${m.metadata.name}" => yamlencode(m) },
   )
 }
