@@ -112,6 +112,14 @@ locals {
         # applied as part of the bootstrap, not on later config edits.
         extraManifests = [
           "https://raw.githubusercontent.com/projectcalico/calico/${var.calico_version}/manifests/tigera-operator.yaml",
+          # OCCM: removes the node.cloudprovider.kubernetes.io/uninitialized
+          # taint set by externalCloudProvider above. Its DaemonSet mounts
+          # the cloud-config Secret that openstack-cloud-controller-manger.tf
+          # creates, and tolerates that taint, so it can start before the
+          # Secret exists and simply waits for it.
+          "https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/${var.occm_version}/manifests/controller-manager/cloud-controller-manager-roles.yaml",
+          "https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/${var.occm_version}/manifests/controller-manager/cloud-controller-manager-role-bindings.yaml",
+          "https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/${var.occm_version}/manifests/controller-manager/openstack-cloud-controller-manager-ds.yaml",
         ]
       }
     }),
@@ -140,6 +148,16 @@ data "talos_machine_configuration" "controlplane" {
   kubernetes_version = var.kubernetes_version
 
   config_patches = concat(local.common_config_patches, local.cni_config_patches, [
+    # Control plane only: workers ignore inlineManifests anyway. Unlike
+    # extraManifests, Talos re-applies these when their contents change.
+    yamlencode({
+      cluster = {
+        inlineManifests = [for name in sort(keys(local.calico_inline_manifests)) : {
+          name     = name
+          contents = local.calico_inline_manifests[name]
+        }]
+      }
+    }),
     yamlencode({
       machine = merge(local.common_machine, {
         network = {

@@ -109,29 +109,113 @@ variable "bgp_secgroup_name" {
   default     = "allow-bgp-icmp"
 }
 
-variable "bgp_vip_ranges" {
-  description = "Load-balancer VIP pool CIDRs announced over BGP; added as allowed address pairs on the node's bgp-net port so port security lets them through."
-  type        = list(string)
+# --- Calico (generated manifests; see calico.tf) ---
+
+variable "calico_ip_pools" {
+  description = <<-EOT
+    Pod IPPools, rendered into both the tigera-operator Installation's
+    calicoNetwork.ipPools and an explicit IPPool (allowedUses Workload +
+    Tunnel). Every CIDR is also added as an allowed address pair on each node
+    port (Neutron port security otherwise drops cross-node pod traffic when the
+    CNI routes natively instead of encapsulating -- confirmed live 2026-09-26),
+    and allowed through the pod-pool security group rules. This is NOT
+    var.pod_subnet, which only tells Kubernetes what to carve node podCIDRs from.
+    encapsulation is one of None, IPIP, IPIPCrossSubnet, VXLAN, VXLANCrossSubnet.
+  EOT
+  type = list(object({
+    name          = string
+    cidr          = string
+    encapsulation = optional(string, "None")
+    nat_outgoing  = optional(bool, true)
+    block_size    = optional(number, 122)
+  }))
   default = [
-    "2607:3640:1064:27f::1:0/112",
-    "fd97:45c2:b3a1:f00::1:0/112",
+    {
+      name = "pods-v6"
+      cidr = "fd00:db8:0:1100::/56"
+    },
+  ]
+
+  validation {
+    condition = alltrue([
+      for p in var.calico_ip_pools :
+      contains(["None", "IPIP", "IPIPCrossSubnet", "VXLAN", "VXLANCrossSubnet"], p.encapsulation)
+    ])
+    error_message = "calico_ip_pools[*].encapsulation must be None, IPIP, IPIPCrossSubnet, VXLAN, or VXLANCrossSubnet."
+  }
+}
+
+variable "calico_node_address_autodetection_v6_cidrs" {
+  description = "CIDRs the operator uses to pick each node's IPv6 BGP address (Installation nodeAddressAutodetectionV6.cidrs). Empty (the default) uses the kubelet's NodeInternalIP instead, which is unambiguous here because kubelet's nodeIP is pinned to the bgp-net subnet."
+  type        = list(string)
+  default     = []
+}
+
+variable "calico_bgp" {
+  description = <<-EOT
+    BGPConfiguration (named "default") plus one BGPPeer per entry in peers.
+    service_load_balancer_ips are advertised over BGP and are also added as
+    allowed address pairs on each node port, so every range here needs a
+    matching calico_load_balancer_pools entry.
+  EOT
+  type = object({
+    as_number                 = number
+    node_to_node_mesh_enabled = optional(bool, true)
+    log_severity_screen       = optional(string, "Info")
+    service_load_balancer_ips = list(string)
+    peers = list(object({
+      name      = string
+      peer_ip   = string
+      as_number = number
+    }))
+  })
+  default = {
+    as_number = 64514
+    service_load_balancer_ips = [
+      "fd97:45c2:b3a1:f00::1:0/112",
+      "2607:3640:1064:27f::1:0/112",
+    ]
+    peers = [
+      {
+        name      = "gateway"
+        peer_ip   = "fd97:45c2:b3a1:1179::1"
+        as_number = 64512
+      },
+    ]
+  }
+}
+
+variable "calico_load_balancer_pools" {
+  description = "LoadBalancer-only IPPools (allowedUses LoadBalancer). Retired pools stay declared with disabled = true, because Calico's pool CIDR is immutable."
+  type = list(object({
+    name     = string
+    cidr     = string
+    disabled = optional(bool, false)
+  }))
+  default = [
+    {
+      name = "lb-internal-routed"
+      cidr = "fd97:45c2:b3a1:f00::1:0/112"
+    },
+    {
+      name = "lb-ingress-routed"
+      cidr = "2607:3640:1064:27f::1:0/112"
+    },
   ]
 }
 
-variable "pod_pool_cidrs" {
+variable "calico_default_deny_policy" {
   description = <<-EOT
-    CIDRs the CNI assigns pod IPs from, added as allowed address pairs on every
-    node port. Neutron port security otherwise drops traffic to or from an
-    address the port doesn't own, which breaks any pod traffic that crosses
-    nodes (host-to-pod and pod-to-pod) when the CNI routes natively instead of
-    encapsulating. Confirmed live 2026-09-26 with Calico (encapsulation
-    Never): cross-node pod-IP traffic timed out. This is Calico's IPPool
-    (files/cni-installation-v6.yaml's pods-v6), NOT var.pod_subnet, which only
-    tells Kubernetes what to allocate node podCIDRs from and currently
-    differs. Keep in sync with whichever pool the CNI really uses.
+    Render the deny-app-policy GlobalNetworkPolicy: deny all ingress and egress
+    for pods outside exempt_namespaces except DNS egress to kube-dns. Off by
+    default because enabling it on a running cluster cuts off every workload
+    in a non-exempt namespace until it gets its own allow policy.
   EOT
-  type        = list(string)
-  default     = ["fd00:db8:0:1100::/56"]
+  type = object({
+    enabled           = optional(bool, false)
+    exempt_namespaces = optional(list(string), ["calico-apiserver", "calico-system", "kube-node-lease", "kube-public", "kube-system", "tigera-operator"])
+  })
+  default = {}
 }
 
 # --- Talos cluster shape ---
@@ -307,6 +391,12 @@ variable "kms_key_bit_length" {
 
 variable "kms_plugin_version" {
   description = "Tag of registry.k8s.io/provider-os/barbican-kms-plugin to run on the control-plane nodes (cloud-provider-openstack release; KMS v2 support is required)."
+  type        = string
+  default     = "v1.36.0"
+}
+
+variable "occm_version" {
+  description = "openstack-cloud-controller-manager release (git tag, e.g. v1.36.0) whose manifests/controller-manager/*.yaml are added to the cluster's extraManifests. Pinned rather than master so the DaemonSet image doesn't change underneath a rebuild."
   type        = string
   default     = "v1.36.0"
 }

@@ -108,9 +108,30 @@ resource "kubernetes_secret_v1" "cloud_config" {
     "cloud.conf" = local.occm_cloud_conf
   }
 
+  # Destroy runs in reverse dependency order, and deleting this Secret is a
+  # live API call through the VIP. So it must also depend on everything that
+  # keeps the API reachable (VIP port, security groups and their rules,
+  # port/SG associations, workers, KMS reboot), otherwise those are torn
+  # down first/in parallel and the delete times out.
   depends_on = [
     data.talos_cluster_health.this,
-    pcd_compute_instance.controlplane
+    talos_cluster_kubeconfig.this,
+    terraform_data.reboot_controlplane_kms,
+    pcd_compute_instance.controlplane,
+    pcd_compute_instance.worker,
+    pcd_networking_port.vip,
+    pcd_networking_port_secgroup_associate.controlplane,
+    pcd_networking_port_secgroup_associate.worker,
+    pcd_networking_secgroup_rule.icmpv6_ingress,
+    pcd_networking_secgroup_rule.kube_apiserver_ingress,
+    pcd_networking_secgroup_rule.talos_apid_ingress,
+    pcd_networking_secgroup_rule.talos_trustd_ingress,
+    pcd_networking_secgroup_rule.etcd_ingress,
+    pcd_networking_secgroup_rule.kubelet_ingress,
+    pcd_networking_secgroup_rule.http_ingress,
+    pcd_networking_secgroup_rule.cluster_internal_ingress,
+    pcd_networking_secgroup_rule.vip_ingress,
+    pcd_networking_secgroup_rule.pod_pool_ingress,
   ]
 }
 

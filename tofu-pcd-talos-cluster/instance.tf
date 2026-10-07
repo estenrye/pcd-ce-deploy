@@ -31,7 +31,7 @@ resource "pcd_networking_port" "controlplane" {
 
   # Load-balancer VIPs the node announces over BGP, plus the control-plane
   # VIP that Talos moves between these ports, plus the pod pool (see
-  # var.pod_pool_cidrs). Without these, port security drops traffic the node
+  # local.pod_pool_cidrs). Without these, port security drops traffic the node
   # forwards for/sources from those addresses. Note
   # the unifi_ml2_driver also appends its own SLAAC address pair to this
   # port (see _authorize_slaac_addresses); the provider doesn't refresh
@@ -39,7 +39,7 @@ resource "pcd_networking_port" "controlplane" {
   # the next apply that changes this list sends *only* these entries and
   # the driver re-adds the SLAAC one on its next 5-minute reconcile.
   allowed_address_pairs = [
-    for ip in concat(var.bgp_vip_ranges, var.pod_pool_cidrs, [pcd_networking_port.vip.all_fixed_ips[0]]) : {
+    for ip in concat(local.bgp_vip_ranges, local.pod_pool_cidrs, [pcd_networking_port.vip.all_fixed_ips[0]]) : {
       ip_address = ip
     }
   ]
@@ -78,7 +78,7 @@ resource "pcd_networking_port" "worker" {
   # same pairs as the control-plane ports -- minus the control-plane VIP,
   # which never lands here.
   allowed_address_pairs = [
-    for cidr in concat(var.bgp_vip_ranges, var.pod_pool_cidrs) : {
+    for cidr in concat(local.bgp_vip_ranges, local.pod_pool_cidrs) : {
       ip_address = cidr
     }
   ]

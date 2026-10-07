@@ -179,10 +179,26 @@ resource "terraform_data" "reboot_controlplane_kms" {
       trap 'rm -f "$cfg"' EXIT
       printf '%s' "$TALOSCONFIG_CONTENT" > "$cfg"
       for node in ${join(" ", local.controlplane_addresses)}; do
-        echo "rebooting $node"
-        # No --wait: it blocks on the Kubernetes endpoint and can hang even
-        # with the node fully back. Poll apid down/up, then etcd, ourselves.
+        # No --wait on reboot: it blocks on the Kubernetes endpoint and can
+        # hang even with the node fully back. Poll apid down/up, then etcd,
+        # ourselves.
         tctl() { talosctl --talosconfig "$cfg" -n "$node" -e "$node" "$@"; }
+        wait_etcd() {
+          for _ in $(seq 120); do
+            svc=$(tctl service etcd 2>/dev/null || true)
+            # `service etcd` prints STATE and HEALTH on separate lines.
+            if grep -qE '^STATE +Running' <<<"$svc" && grep -qE '^HEALTH +OK' <<<"$svc"; then
+              return 0
+            fi
+            sleep 5
+          done
+          return 1
+        }
+        # Bootstrap is accepted before etcd has persisted anything; a reboot
+        # in that window loses it and etcd then waits for a bootstrap that
+        # never comes. Only reboot a node whose etcd is already healthy.
+        wait_etcd || { echo "etcd not healthy on $node before reboot" >&2; exit 1; }
+        echo "rebooting $node"
         tctl reboot --wait=false
         for _ in $(seq 60); do
           tctl version >/dev/null 2>&1 || break
@@ -190,17 +206,7 @@ resource "terraform_data" "reboot_controlplane_kms" {
         done
         # etcd must be healthy again before the next node goes down, or two
         # of three members are out and quorum is lost.
-        etcd_ok=0
-        for _ in $(seq 120); do
-          svc=$(tctl service etcd 2>/dev/null || true)
-          # `service etcd` prints STATE and HEALTH on separate lines.
-          if grep -qE '^STATE +Running' <<<"$svc" && grep -qE '^HEALTH +OK' <<<"$svc"; then
-            etcd_ok=1
-            break
-          fi
-          sleep 5
-        done
-        [ "$etcd_ok" = 1 ] || { echo "etcd never became healthy on $node" >&2; exit 1; }
+        wait_etcd || { echo "etcd never became healthy on $node" >&2; exit 1; }
         # Wait for the plugin to recreate its socket before touching the next node.
         for _ in $(seq 60); do
           # Captured, not piped to grep -q: SIGPIPE + pipefail fails the pipeline on a match.
@@ -219,8 +225,11 @@ resource "terraform_data" "reboot_controlplane_kms" {
     }
   }
 
+  # talos_machine_bootstrap too: otherwise this reboot races the bootstrap
+  # call on the first node (see wait_etcd above).
   depends_on = [
     talos_machine_configuration_apply.controlplane,
     terraform_data.reboot_controlplane,
+    talos_machine_bootstrap.this,
   ]
 }

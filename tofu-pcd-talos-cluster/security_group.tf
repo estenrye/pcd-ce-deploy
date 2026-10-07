@@ -134,7 +134,7 @@ resource "pcd_networking_secgroup_rule" "vip_ingress" {
 # lets pods reach node ports (etcd, apid, kubelet); those are still guarded by
 # mTLS, and Calico host endpoint policy is the way to restrict them further.
 resource "pcd_networking_secgroup_rule" "pod_pool_ingress" {
-  for_each = toset(var.pod_pool_cidrs)
+  for_each = toset(local.pod_pool_cidrs)
 
   security_group_id = pcd_networking_secgroup.talos.id
   description       = "Allow all traffic sourced from the pod pool ${each.value}"
