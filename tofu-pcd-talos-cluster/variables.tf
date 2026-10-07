@@ -411,7 +411,7 @@ variable "cinder_storage_classes" {
   description = <<-EOT
     StorageClasses for provisioner cinder.csi.openstack.org, keyed by name.
     The defaults match the upstream cinder-csi-plugin chart (a Delete and a
-    Retain class, neither the cluster default, no parameters). At most one
+    Retain class, no parameters), except that the Delete class is the default. At most one
     class should set is_default. parameters are passed straight to the driver
     (e.g. type = "<cinder volume type>", availability = "<az>").
   EOT
@@ -423,7 +423,7 @@ variable "cinder_storage_classes" {
     parameters             = optional(map(string), {})
   }))
   default = {
-    "csi-cinder-sc-delete" = { reclaim_policy = "Delete" }
+    "csi-cinder-sc-delete" = { reclaim_policy = "Delete", is_default = true }
     "csi-cinder-sc-retain" = { reclaim_policy = "Retain" }
   }
 
@@ -441,4 +441,39 @@ variable "cinder_availability_zone" {
   description = "Cinder availability zone set as the `availability` parameter on every cinder_storage_classes entry. A class can override it through its own parameters. Empty omits the parameter."
   type        = string
   default     = "pcd-ce-lab"
+}
+
+variable "external_snapshotter_version" {
+  description = "kubernetes-csi/external-snapshotter release (git tag, e.g. v8.4.0) whose snapshot CRDs and snapshot-controller are added to the cluster's extraManifests. Keep it in line with the csi-snapshotter sidecar in the Cinder CSI manifests (cinder_csi_version)."
+  type        = string
+  default     = "v8.4.0"
+}
+
+variable "cinder_volume_snapshot_classes" {
+  description = <<-EOT
+    VolumeSnapshotClasses for driver cinder.csi.openstack.org, keyed by name:
+    one with deletion_policy Delete (the default class) and one with
+    Retain, mirroring cinder_storage_classes. At most one class should set is_default.
+    parameters go to the driver, e.g. force-create = "true" to snapshot a
+    volume that is attached, or type = "backup" for Cinder backups instead of
+    snapshots.
+  EOT
+  type = map(object({
+    deletion_policy = string
+    is_default      = optional(bool, false)
+    parameters      = optional(map(string), {})
+  }))
+  default = {
+    "csi-cinder-snapclass-delete" = { deletion_policy = "Delete", is_default = true }
+    "csi-cinder-snapclass-retain" = { deletion_policy = "Retain" }
+  }
+
+  validation {
+    condition     = length([for v in values(var.cinder_volume_snapshot_classes) : v if v.is_default]) <= 1
+    error_message = "At most one cinder_volume_snapshot_classes entry may set is_default."
+  }
+  validation {
+    condition     = alltrue([for v in values(var.cinder_volume_snapshot_classes) : contains(["Delete", "Retain"], v.deletion_policy)])
+    error_message = "cinder_volume_snapshot_classes[*].deletion_policy must be Delete or Retain."
+  }
 }

@@ -36,7 +36,37 @@ locals {
   }
 }
 
-# Every Talos inline manifest (Calico + Cinder StorageClasses).
+# VolumeSnapshotClasses for the same driver. The snapshot.storage.k8s.io CRDs
+# come from extraManifests (talos.tf); Talos retries an inline manifest that
+# fails to apply, so these settle once the CRDs exist.
 locals {
-  inline_manifests = merge(local.calico_inline_manifests, local.cinder_inline_manifests)
+  cinder_volume_snapshot_classes = {
+    for name, vsc in var.cinder_volume_snapshot_classes : name => {
+      apiVersion = "snapshot.storage.k8s.io/v1"
+      kind       = "VolumeSnapshotClass"
+      metadata = merge(
+        { name = name },
+        vsc.is_default ? { annotations = { "snapshot.storage.kubernetes.io/is-default-class" = "true" } } : {},
+      )
+      driver         = "cinder.csi.openstack.org"
+      deletionPolicy = vsc.deletion_policy
+      parameters     = length(vsc.parameters) > 0 ? vsc.parameters : null
+    }
+  }
+
+  cinder_snapshot_inline_manifests = {
+    for name, m in local.cinder_volume_snapshot_classes : "cinder-snapclass-${name}" => yamlencode({
+      for k, v in m : k => v if v != null
+    })
+  }
+}
+
+# Every Talos inline manifest (Calico + Cinder StorageClasses and
+# VolumeSnapshotClasses).
+locals {
+  inline_manifests = merge(
+    local.calico_inline_manifests,
+    local.cinder_inline_manifests,
+    local.cinder_snapshot_inline_manifests,
+  )
 }

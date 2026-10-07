@@ -120,6 +120,15 @@ locals {
           "https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/${var.occm_version}/manifests/controller-manager/cloud-controller-manager-roles.yaml",
           "https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/${var.occm_version}/manifests/controller-manager/cloud-controller-manager-role-bindings.yaml",
           "https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/${var.occm_version}/manifests/controller-manager/openstack-cloud-controller-manager-ds.yaml",
+          # CSI snapshot support (kubernetes-csi/external-snapshotter): the
+          # three snapshot.storage.k8s.io CRDs, then the cluster-wide
+          # snapshot-controller (RBAC + Deployment). The Cinder controller's
+          # csi-snapshotter sidecar below needs these CRDs to run.
+          "https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${var.external_snapshotter_version}/client/config/crd/snapshot.storage.k8s.io_volumesnapshotclasses.yaml",
+          "https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${var.external_snapshotter_version}/client/config/crd/snapshot.storage.k8s.io_volumesnapshotcontents.yaml",
+          "https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${var.external_snapshotter_version}/client/config/crd/snapshot.storage.k8s.io_volumesnapshots.yaml",
+          "https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${var.external_snapshotter_version}/deploy/kubernetes/snapshot-controller/rbac-snapshot-controller.yaml",
+          "https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${var.external_snapshotter_version}/deploy/kubernetes/snapshot-controller/setup-snapshot-controller.yaml",
           # Cinder CSI: the CSIDriver object, the controller Deployment
           # (attacher/provisioner/snapshotter/resizer sidecars) and the node
           # DaemonSet that formats and mounts the attached volume. Both read
