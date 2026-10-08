@@ -531,3 +531,15 @@ variable "gateway_classes" {
     error_message = "gateway_classes[*].gateway_kind must be Deployment or DaemonSet."
   }
 }
+
+variable "metrics_server_version" {
+  description = "kubernetes-sigs/metrics-server release (git tag, e.g. v0.9.0) whose components.yaml is added to the cluster's extraManifests."
+  type        = string
+  default     = "v0.9.0"
+}
+
+variable "kubelet_serving_cert_approver_version" {
+  description = "alex1989hu/kubelet-serving-cert-approver release (git tag, e.g. v0.12.1) added to the cluster's extraManifests. It approves the kubelet serving-certificate CSRs that metrics-server's TLS verification depends on."
+  type        = string
+  default     = "v0.12.1"
+}

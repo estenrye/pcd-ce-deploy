@@ -80,6 +80,20 @@ locals {
         validSubnets = [data.pcd_networking_subnet.bgp.cidr]
       }
     }),
+    # metrics-server verifies kubelet serving certs. Talos's default is a
+    # self-signed one, so have kubelet request a cluster-CA-signed cert via a
+    # CSR instead; kubelet-serving-cert-approver (extraManifests below)
+    # approves those CSRs. A KubeletConfig document conflicts with
+    # `.machine.kubelet`, so that must stay unset. The image is required
+    # here; it mirrors what Talos would otherwise default to.
+    yamlencode({
+      apiVersion = "v1alpha1"
+      kind       = "KubeletConfig"
+      image      = "ghcr.io/siderolabs/kubelet:${var.kubernetes_version}"
+      config = {
+        serverTLSBootstrap = true
+      }
+    }),
     # Supersedes `.cluster.network.{podSubnets,serviceSubnets}`.
     yamlencode(merge({
       apiVersion = "v1alpha1"
@@ -129,6 +143,11 @@ locals {
           "https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${var.external_snapshotter_version}/client/config/crd/snapshot.storage.k8s.io_volumesnapshots.yaml",
           "https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${var.external_snapshotter_version}/deploy/kubernetes/snapshot-controller/rbac-snapshot-controller.yaml",
           "https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${var.external_snapshotter_version}/deploy/kubernetes/snapshot-controller/setup-snapshot-controller.yaml",
+          # metrics-server (kubectl top, HPA), plus the approver for the
+          # kubelet serving-cert CSRs it needs (serverTLSBootstrap in the
+          # KubeletConfig patch). Kubernetes never auto-approves those.
+          "https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/${var.kubelet_serving_cert_approver_version}/deploy/standalone-install.yaml",
+          "https://github.com/kubernetes-sigs/metrics-server/releases/download/${var.metrics_server_version}/components.yaml",
           # Cinder CSI: the CSIDriver object, the controller Deployment
           # (attacher/provisioner/snapshotter/resizer sidecars) and the node
           # DaemonSet that formats and mounts the attached volume. Both read
