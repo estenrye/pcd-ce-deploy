@@ -543,3 +543,9 @@ variable "kubelet_serving_cert_approver_version" {
   type        = string
   default     = "v0.12.1"
 }
+
+variable "spegel_version" {
+  description = "Spegel chart version that files/spegel.yaml was rendered from (see the header of that file for the helm template command). Informational: changing it does not re-render the manifest."
+  type        = string
+  default     = "0.8.0"
+}

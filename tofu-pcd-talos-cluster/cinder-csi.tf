@@ -62,11 +62,12 @@ locals {
 }
 
 # Every Talos inline manifest (Calico + Cinder StorageClasses and
-# VolumeSnapshotClasses).
+# VolumeSnapshotClasses + Spegel).
 locals {
   inline_manifests = merge(
     local.calico_inline_manifests,
     local.cinder_inline_manifests,
     local.cinder_snapshot_inline_manifests,
+    local.spegel_inline_manifests,
   )
 }

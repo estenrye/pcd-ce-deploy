@@ -1,0 +1,5 @@
+# Talos paths (https://spegel.dev/docs/getting-started/#talos).
+spegel:
+  containerdSock: /run/containerd/containerd.sock
+  containerdContentPath: /var/lib/containerd/io.containerd.content.v1.content
+  containerdRegistryConfigPath: /etc/cri/conf.d/hosts
