@@ -1,0 +1,78 @@
+#cloud-config
+package_update: true
+packages:
+  - make
+  - jq
+  - unzip
+  - git
+  - build-essential
+  - python3-pip
+  - python3-openstackclient
+  - qemu-system-x86
+  - qemu-utils
+  - libvirt-daemon-system
+  - libvirt-clients
+  - virtinst
+  - cpu-checker
+  - libguestfs-tools
+  - libosinfo-bin
+# This subnet's RA carries the Autonomous flag but the UDM-SE only runs DHCPv6
+# in ra-only mode (see docs/neutron-vlan-udm-se-integration-spec.md), so
+# nothing ever leases the Neutron fixed IP and the guest would run on a SLAAC
+# address instead -- one that isn't the port's fixed IP, so tofu can't know it.
+# Configure the fixed IP statically and stop accepting SLAAC prefixes. RA still
+# supplies the default route. Netplan merges this with cloud-init's own
+# definition of the same interface (50-cloud-init.yaml).
+write_files:
+  - path: /etc/netplan/60-fixed-address.yaml
+    permissions: "0600"
+    content: |
+      network:
+        version: 2
+        ethernets:
+          ${interface}:
+            dhcp6: false
+            addresses: ["${address}/${prefix_length}"]
+  - path: /etc/systemd/network/10-netplan-${interface}.network.d/no-slaac.conf
+    content: |
+      [IPv6AcceptRA]
+      UseAutonomousPrefix=no
+%{ if length(dns64_servers) > 0 ~}
+      # Only the configured DNS64 servers: the subnet also advertises a public
+      # DNS64 (Cloudflare) that maps private IPv4 addresses such as PCD's own
+      # API into 64:ff9b::/96, which is not routable here, and glibc tries
+      # that address first.
+      UseDNS=no
+
+      [Network]
+      DNS=
+%{ for s in dns64_servers ~}
+      DNS=${s}
+%{ endfor ~}
+%{ endif ~}
+%{ if length(dns64_servers) > 0 ~}
+  - path: /etc/systemd/resolved.conf.d/dns64.conf
+    content: |
+      [Resolve]
+      DNS=${join(" ", dns64_servers)}
+      Domains=~.
+%{ endif ~}
+runcmd:
+  - [netplan, generate]
+  - [networkctl, reload]
+  # Drop the SLAAC address formed before the settings above took effect.
+  - [bash, -c, "sleep 3; ip -6 -o addr show dev ${interface} scope global dynamic | awk '{print $4}' | xargs -r -n1 ip -6 addr del dev ${interface}"]
+%{ if length(dns64_servers) > 0 ~}
+  - [systemctl, restart, systemd-resolved]
+%{ endif ~}
+  - [usermod, -aG, kvm, ubuntu]
+  - [mkdir, -p, /var/log/image-builder]
+  - [chown, ubuntu, /var/log/image-builder]
+  - [git, clone, "https://github.com/kubernetes-sigs/image-builder.git", /opt/image-builder]
+  - [git, -C, /opt/image-builder, checkout, "${image_builder_ref}"]
+  - [chown, -R, "ubuntu:ubuntu", /opt/image-builder]
+  # image-builder's docs say to rerun deps-qemu until it succeeds, and that
+  # pip's --user bin directory must be on PATH. The ready marker is only
+  # written when it does succeed.
+  - [sudo, -u, ubuntu, -H, bash, -c, "export PATH=$HOME/.local/bin:$PATH; cd /opt/image-builder/images/capi && for i in 1 2 3; do make deps-qemu && touch /tmp/deps-ok && exit 0; sleep 15; done; exit 1"]
+  - [bash, -c, "test -e /tmp/deps-ok && touch /var/lib/image-builder-ready"]

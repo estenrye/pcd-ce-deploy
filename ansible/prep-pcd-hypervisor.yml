@@ -14,6 +14,9 @@
     onepassword_vault: Home_Lab
     onepassword_item_title: "PCD Community - pcd.rye.ninja"
 
+    nova_conf_dir: /opt/pf9/etc/nova/conf.d
+    nova_cpu_passthrough_file: zz-cpu-passthrough.conf
+
     vm_ssh_public_keys:
       - "ecdsa-sha2-nistp521 AAAAE2VjZHNhLXNoYTItbmlzdHA1MjEAAAAIbmlzdHA1MjEAAACFBABRrM38w/r7E5eHrD5eeQ0tU5sNlpseYO3s0kKKf0tbYIOsGW52ofUBzzx2/3PoAANOX/rZIwk6DmmiQxPizKeF6QCZuHrzknDHNHtg2JNWlsh24zNI9OjX8e+bB1oPE8y/PQPXPA8hrf7RZhU0wb3Ld4I6tOpcdiimlOI4sYmPgITmKA== esten@MacBook-Pro"
       - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDLOOcdudgGgvUIsFxIDY6/uq9daQ7kmvSmRydv8KiqOXSUb5NH3YnnYpqcl7Le8T9U5++I71S5kRSxgsq+CY8ZmdrG522Rxy1/ixl0REKSKexZ7h/iue6ve0WxE9tS7Cj9ubug4/d1l6cFEdIp1KyzPdMRJtW9LB650t/mpe17LBic39XOcHfWdpYqCmW4Wrg9D1nO/mO+Gx1LLwfii770aZ6lHIxsaVj1FwmqKdlQswco10KPfB2WvzBxSaUhV4+xUV2uJ9aXshQPUx49flqiPgwQn7jiQxkOdkGb0X63WJjKCImGn9uJ5ms+3MVoLPeRYucKZvDxqJsYieV1Zy8uDODoqrJHPaXnixVVMZFNtKpvHDYgEoURqE2i+T/zclOdmLcSe5oYtD90/MGcKTuScZaqv5UOYfGK/y9Rqhleofznx6QqHPFVmN8HDgJje8EVwWfob3SbzfP3fYa60OJF0nfjxCBGCHZa8ZFZ47/qmpJsgWHgj6tlaYJw532lG4gCToy22PvTLmn7RQ8eB4IDmJWepezElkeH4KuQoM7o1UEPEdMkbeH1lzALj2sgGd3AnYhJxODLhlRULYdsA/dFp+bApB1YXf64fPg2ksPJdSQ7z/DIAHa1W0u6YhqVHRtaPq5s1zHzFKyDv3SClXGskExlFWz73P8l5nJkEqZfVw== esten@platform9.com"
@@ -234,6 +237,67 @@
         msg: "pcdctl prep-node failed (rc={{ pcdctl_prep_node_result.rc }}). See output above."
       when: pcdctl_prep_node_result.rc != 0
 
+    # Nova guests get a generic named CPU model (PCD auto-selects "Westmere-IBRS"
+    # for this host), which hides vmx/svm, so nothing inside a guest can use
+    # KVM (no /dev/kvm; e.g. the qemu builds in tofu-pcd-k8s-image-builder).
+    # host-passthrough exposes the host's virtualization flags to guests.
+    #
+    # PCD owns nova.conf and nova_override.conf: pf9-ostackhost's `config`
+    # script rewrites cpu_mode/cpu_models in nova.conf and strips them from
+    # nova_override.conf whenever it auto-selects a CPU model. Nova runs with
+    # --config-dir, which applies every *.conf in filename order, so a file
+    # that sorts after both and that PCD never writes survives PCD runs.
+    - name: Check whether PCD's nova config directory exists
+      ansible.builtin.stat:
+        path: "{{ nova_conf_dir }}"
+      register: nova_conf_dir_stat
+      tags: [cpu]
+
+    - name: Read the KVM nested virtualization parameter
+      ansible.builtin.shell: |
+        for m in kvm_intel kvm_amd; do
+          [ -r /sys/module/$m/parameters/nested ] && cat /sys/module/$m/parameters/nested && exit 0
+        done
+        echo missing
+      register: kvm_nested_check
+      changed_when: false
+      check_mode: false
+      tags: [cpu]
+
+    - name: Fail if nested virtualization is not enabled in the host's kvm module
+      ansible.builtin.fail:
+        msg: >-
+          kvm nested parameter is '{{ kvm_nested_check.stdout | trim }}'. Enable it
+          (options kvm_intel nested=1, or kvm_amd nested=1, in /etc/modprobe.d)
+          and reload the module or reboot before passing the host CPU through.
+      when: kvm_nested_check.stdout | trim not in ['Y', '1']
+      tags: [cpu]
+
+    - name: Pass the host CPU through to Nova guests
+      ansible.builtin.copy:
+        dest: "{{ nova_conf_dir }}/{{ nova_cpu_passthrough_file }}"
+        content: |
+          # Managed by ansible/prep-pcd-hypervisor.yml. Sorts after nova.conf and
+          # nova_override.conf (PCD rewrites those) so it wins. See that playbook.
+          [libvirt]
+          cpu_mode = host-passthrough
+          # nova.conf still carries PCD's cpu_models; Nova refuses to start if
+          # cpu_models is set while cpu_mode is not custom.
+          cpu_models =
+        owner: pf9
+        group: pf9group
+        mode: "0640"
+      when: nova_conf_dir_stat.stat.exists
+      notify: Restart pf9-ostackhost
+      tags: [cpu]
+
   handlers:
     - name: Apply netplan
       ansible.builtin.command: netplan apply
+
+    # Running guests keep their old CPU until they are hard-rebooted
+    # (`openstack server reboot --hard`) or recreated.
+    - name: Restart pf9-ostackhost
+      ansible.builtin.systemd:
+        name: pf9-ostackhost
+        state: restarted

@@ -1,0 +1,165 @@
+#!/bin/bash
+# One image build: skip if the image already exists in Glance, otherwise
+# build with image-builder's qemu builder, then upload from this host (the
+# multi-GB qcow2 never crosses the operator's workstation).
+set -euo pipefail
+
+NAME='${image_name}'
+OS='${os}'
+SEMVER='${semver}'
+MINOR='${minor}'
+OSC='openstack --os-cloud pcd'
+ENV_FILE="$HOME/.build-${key}.env"
+VAR_FILE="$HOME/packer-vars-${key}.json"
+LOG=/var/log/image-builder/${key}.log
+
+cleanup() { shred -u "$ENV_FILE" 2>/dev/null || rm -f "$ENV_FILE"; }
+trap cleanup EXIT
+
+set -a
+# shellcheck disable=SC1090
+. "$ENV_FILE"
+set +a
+
+# `openstack` has no flag or env var for a Glance endpoint override (both are
+# silently ignored); only a clouds.yaml `image_endpoint_override` works.
+# PCD's catalog Glance endpoint is an IPv4 literal this IPv6-only host cannot
+# reach, so the override is what makes uploads possible.
+CLOUDS_DIR=$(mktemp -d)
+export OS_CLIENT_CONFIG_FILE="$CLOUDS_DIR/clouds.yaml"
+cleanup() { shred -u "$ENV_FILE" 2>/dev/null || rm -f "$ENV_FILE"; rm -rf "$CLOUDS_DIR"; }
+{
+  echo "clouds:"
+  echo "  pcd:"
+  echo "    auth: {auth_url: '$OS_AUTH_URL', username: '$OS_USERNAME', password: '$OS_PASSWORD', project_name: '$OS_PROJECT_NAME', user_domain_id: '$OS_USER_DOMAIN_ID', project_domain_id: '$OS_PROJECT_DOMAIN_ID'}"
+  echo "    region_name: '$OS_REGION_NAME'"
+  echo "    identity_api_version: 3"
+  echo "    interface: '$OS_INTERFACE'"
+  echo "    verify: false"
+  [ -z "$${OS_IMAGE_ENDPOINT_OVERRIDE:-}" ] || echo "    image_endpoint_override: '$OS_IMAGE_ENDPOINT_OVERRIDE'"
+} > "$OS_CLIENT_CONFIG_FILE"
+chmod 600 "$OS_CLIENT_CONFIG_FILE"
+unset OS_AUTH_URL OS_USERNAME OS_PASSWORD OS_PROJECT_NAME OS_USER_DOMAIN_ID OS_PROJECT_DOMAIN_ID OS_REGION_NAME OS_IDENTITY_API_VERSION OS_INTERFACE OS_IMAGE_ENDPOINT_OVERRIDE
+
+# At most ${parallel_builds} builds at once: take any free slot (a lock file
+# per slot; the lock dies with this process, so a killed build frees its slot).
+slot=
+while [ -z "$slot" ]; do
+  for i in $(seq 1 ${parallel_builds}); do
+    exec 9>"/var/lock/image-builder.slot$i"
+    if flock -n 9; then slot=$i; break; fi
+  done
+  [ -n "$slot" ] || sleep 15
+done
+echo "using build slot $slot of ${parallel_builds}"
+
+existing=$($OSC image list --name "$NAME" -f value -c ID | head -n1)
+if [ -n "$existing" ]; then
+  echo "image $NAME already exists"
+  echo "IMAGE_ID=$existing"
+  exit 0
+fi
+
+# The default ref is cloned (with its dependencies) by cloud-init; any other
+# ref gets its own checkout and dependency install on first use.
+REF='${image_builder_ref}'
+if [ "$REF" = '${default_ref}' ]; then
+  IB=/opt/image-builder
+else
+  IB="$HOME/image-builder-$REF"
+  if [ ! -d "$IB/.ready" ]; then
+    rm -rf "$IB"
+    git clone -q https://github.com/kubernetes-sigs/image-builder.git "$IB"
+    git -C "$IB" checkout -q "$REF"
+    (cd "$IB/images/capi" && export PATH="$HOME/.local/bin:$PATH" &&
+      for i in 1 2 3; do make deps-qemu >>"$LOG" 2>&1 && exit 0; sleep 15; done; exit 1) || { echo "make deps-qemu failed for $REF; see $LOG" >&2; exit 1; }
+    mkdir "$IB/.ready"
+  fi
+fi
+# Each build gets a private copy of the tree. `make build-qemu-*` runs
+# hack/set-ssh-password.sh, which rewrites packer/qemu/linux/*/http/*/user-data
+# (a random password hash) *inside the checkout*, while the nested VM later
+# fetches that file over HTTP. Builds sharing one checkout overwrite each
+# other's file, so a VM can install another build's password hash and the
+# build's Packer, using its own password, never gets in ("Failed password for
+# builder", seen on 3 of 6 parallel builds). The ISO cache is in
+# ~/.cache/packer and stays shared.
+WORK="$HOME/ib-work/${key}"
+rm -rf "$WORK"
+mkdir -p "$WORK"
+rsync -a --exclude output "$IB/images/capi/" "$WORK/"
+cd "$WORK"
+export PATH="$HOME/.local/bin:$PWD/.bin:$PATH"
+BUILD_DIR="output/$OS-kube-$SEMVER"
+rm -rf "$BUILD_DIR"
+
+echo "building $NAME (log: $LOG)"
+
+# One attempt: run make in its own process group and watch the log. Packer
+# waits 2h for SSH and cannot tell that the nested VM is dead or has no ssh
+# credentials (a lost boot command), so give up after ${ssh_wait_minutes} minutes in that step.
+run_build() {
+  : >"$LOG"
+  PACKER_VAR_FILES="$VAR_FILE" PACKER_LOG=1 setsid make "build-qemu-$OS" >>"$LOG" 2>&1 &
+  local pid=$! waited=0
+  while kill -0 "$pid" 2>/dev/null; do
+    sleep 20
+    if grep -a -q 'Waiting for SSH to become available' "$LOG" && ! grep -a -q 'Connected to SSH' "$LOG"; then
+      waited=$((waited + 20))
+      if [ "$waited" -ge $((${ssh_wait_minutes} * 60)) ]; then
+        echo "no ssh to the nested VM after ${ssh_wait_minutes} minutes; killing this attempt" | tee -a "$LOG"
+        kill -TERM -- "-$pid" 2>/dev/null || true
+        sleep 5
+        # Packer's qemu child can outlive it; match this build's output path.
+        pkill -f -- "qemu-system.*$BUILD_DIR/" 2>/dev/null || true
+        wait "$pid" 2>/dev/null || true
+        return 99
+      fi
+    fi
+  done
+  wait "$pid"
+}
+
+# Retry once for failures that are not deterministic: a hung/unreachable VM
+# (rc 99) or a one-off download failure in the nested VM, which reaches the
+# internet through user-mode networking on an IPv6-only host. Real build
+# errors (e.g. a bad kubeadm config) fail straight away rather than costing
+# another hour.
+attempt=1
+while true; do
+  rc=0
+  run_build || rc=$?
+  [ "$rc" -eq 0 ] && break
+  if [ "$attempt" -lt 2 ] && { [ "$rc" -eq 99 ] || tail -n 400 "$LOG" | sed 's/\x1b\[[0-9;]*m//g' | grep -a -q -E 'urlopen error \[Errno 101\] Network is unreachable|Temporary failure in name resolution|Could not resolve host'; }; then
+    echo "attempt $attempt failed (rc=$rc, a retryable error); retrying"
+    cp "$LOG" "$LOG.attempt$attempt"
+    attempt=$((attempt + 1))
+    rm -rf "$BUILD_DIR"
+    continue
+  fi
+  echo "build failed; last 80 log lines:" >&2
+  tail -n 80 "$LOG" >&2
+  exit 1
+done
+
+src=$(find "$BUILD_DIR" -type f -printf '%s %p\n' | sort -rn | head -n1 | cut -d' ' -f2-)
+[ -n "$src" ] || { echo "no image produced under $BUILD_DIR" >&2; exit 1; }
+
+# Compress so the upload is smaller; the build output is a sparse disk.
+qemu-img convert -c -O qcow2 "$src" "$BUILD_DIR/upload.qcow2"
+
+id=$($OSC image create "$NAME" \
+  --file "$BUILD_DIR/upload.qcow2" \
+  --disk-format qcow2 --container-format bare \
+  --${visibility} \
+  --property k8s_version="$MINOR" \
+  --property kubernetes_semver="$SEMVER" \
+  --property os_distro=ubuntu \
+  --property os_version='${os_version}' \
+  --property image_builder_ref='${image_builder_ref}' \
+  --property managed_by=tofu-pcd-k8s-image-builder \
+  -f value -c id)
+
+cd "$HOME"
+rm -rf "$WORK"
+echo "IMAGE_ID=$id"

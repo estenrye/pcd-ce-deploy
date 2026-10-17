@@ -1,0 +1,291 @@
+2026-10-16T16:57:20.838-0500 [INFO]  OpenTofu version: 1.12.5
+2026-10-16T16:57:20.838-0500 [DEBUG] using github.com/hashicorp/go-getter v1.8.6
+2026-10-16T16:57:20.838-0500 [DEBUG] using github.com/hashicorp/hcl v1.0.1-vault-7
+2026-10-16T16:57:20.838-0500 [DEBUG] using github.com/opentofu/hcl/v2 v2.20.2-0.20251021132045-587d123c2828
+2026-10-16T16:57:20.838-0500 [DEBUG] using github.com/opentofu/registry-address/v2 v2.0.0-20260307135325-45f3562374e4
+2026-10-16T16:57:20.838-0500 [DEBUG] using github.com/opentofu/svchost v0.0.0-20250610175836-86c9e5e3d8c8
+2026-10-16T16:57:20.838-0500 [DEBUG] using github.com/zclconf/go-cty v1.18.0
+2026-10-16T16:57:20.838-0500 [INFO]  Go runtime version: go1.26.5
+2026-10-16T16:57:20.838-0500 [INFO]  CLI args: []string{"tofu", "apply", "-no-color", "ready.plan"}
+2026-10-16T16:57:20.838-0500 [DEBUG] Attempting to open CLI config file: /Users/esten/.tofurc
+2026-10-16T16:57:20.838-0500 [DEBUG] File doesn't exist, but doesn't need to. Ignoring.
+2026-10-16T16:57:20.838-0500 [DEBUG] ignoring non-existing provider search directory terraform.d/plugins
+2026-10-16T16:57:20.838-0500 [DEBUG] ignoring non-existing provider search directory /Users/esten/.terraform.d/plugins
+2026-10-16T16:57:20.838-0500 [DEBUG] ignoring non-existing provider search directory /Users/esten/Library/Application Support/io.terraform/plugins
+2026-10-16T16:57:20.838-0500 [DEBUG] ignoring non-existing provider search directory /Library/Application Support/io.terraform/plugins
+2026-10-16T16:57:20.839-0500 [DEBUG] Found the config directory: /Users/esten/.terraform.d
+2026-10-16T16:57:20.839-0500 [INFO]  CLI command args: []string{"apply", "-no-color", "ready.plan"}
+2026-10-16T16:57:20.844-0500 [DEBUG] checking for provisioner in "."
+2026-10-16T16:57:20.844-0500 [DEBUG] checking for provisioner in "/opt/homebrew/bin"
+2026-10-16T16:57:20.845-0500 [INFO]  backend/local: starting Apply operation
+2026-10-16T16:57:20.861-0500 [DEBUG] created provider logger: level=debug
+2026-10-16T16:57:20.861-0500 [INFO]  provider: configuring client automatic mTLS
+2026-10-16T16:57:20.862-0500 [DEBUG] created provider logger: level=debug
+2026-10-16T16:57:20.862-0500 [INFO]  provider: configuring client automatic mTLS
+2026-10-16T16:57:20.864-0500 [DEBUG] created provider logger: level=debug
+2026-10-16T16:57:20.864-0500 [INFO]  provider: configuring client automatic mTLS
+2026-10-16T16:57:20.867-0500 [DEBUG] provider: starting plugin: path=.terraform/providers/registry.terraform.io/platform9/pcd/0.1.20/darwin_arm64/terraform-provider-pcd_v0.1.20 args=[".terraform/providers/registry.terraform.io/platform9/pcd/0.1.20/darwin_arm64/terraform-provider-pcd_v0.1.20"]
+2026-10-16T16:57:20.867-0500 [DEBUG] provider: starting plugin: path=.terraform/providers/registry.terraform.io/loafoe/ssh/2.7.0/darwin_arm64/terraform-provider-ssh_v2.7.0 args=[".terraform/providers/registry.terraform.io/loafoe/ssh/2.7.0/darwin_arm64/terraform-provider-ssh_v2.7.0"]
+2026-10-16T16:57:20.867-0500 [DEBUG] provider: starting plugin: path=.terraform/providers/registry.opentofu.org/hashicorp/http/3.6.2/darwin_arm64/terraform-provider-http args=[".terraform/providers/registry.opentofu.org/hashicorp/http/3.6.2/darwin_arm64/terraform-provider-http"]
+2026-10-16T16:57:20.869-0500 [DEBUG] provider: plugin started: path=.terraform/providers/registry.terraform.io/platform9/pcd/0.1.20/darwin_arm64/terraform-provider-pcd_v0.1.20 pid=21524
+2026-10-16T16:57:20.869-0500 [DEBUG] provider: plugin started: path=.terraform/providers/registry.terraform.io/loafoe/ssh/2.7.0/darwin_arm64/terraform-provider-ssh_v2.7.0 pid=21525
+2026-10-16T16:57:20.869-0500 [DEBUG] provider: waiting for RPC address: plugin=.terraform/providers/registry.terraform.io/platform9/pcd/0.1.20/darwin_arm64/terraform-provider-pcd_v0.1.20
+2026-10-16T16:57:20.869-0500 [DEBUG] provider: waiting for RPC address: plugin=.terraform/providers/registry.terraform.io/loafoe/ssh/2.7.0/darwin_arm64/terraform-provider-ssh_v2.7.0
+2026-10-16T16:57:20.870-0500 [DEBUG] provider: plugin started: path=.terraform/providers/registry.opentofu.org/hashicorp/http/3.6.2/darwin_arm64/terraform-provider-http pid=21526
+2026-10-16T16:57:20.870-0500 [DEBUG] provider: waiting for RPC address: plugin=.terraform/providers/registry.opentofu.org/hashicorp/http/3.6.2/darwin_arm64/terraform-provider-http
+2026-10-16T16:57:20.870-0500 [DEBUG] created provider logger: level=debug
+2026-10-16T16:57:20.870-0500 [INFO]  provider: configuring client automatic mTLS
+2026-10-16T16:57:20.873-0500 [DEBUG] provider: starting plugin: path=.terraform/providers/registry.opentofu.org/1password/onepassword/3.3.1/darwin_arm64/terraform-provider-onepassword_v3.3.1 args=[".terraform/providers/registry.opentofu.org/1password/onepassword/3.3.1/darwin_arm64/terraform-provider-onepassword_v3.3.1"]
+2026-10-16T16:57:20.874-0500 [DEBUG] provider: plugin started: path=.terraform/providers/registry.opentofu.org/1password/onepassword/3.3.1/darwin_arm64/terraform-provider-onepassword_v3.3.1 pid=21527
+2026-10-16T16:57:20.875-0500 [DEBUG] provider: waiting for RPC address: plugin=.terraform/providers/registry.opentofu.org/1password/onepassword/3.3.1/darwin_arm64/terraform-provider-onepassword_v3.3.1
+2026-10-16T16:57:20.876-0500 [INFO]  provider.terraform-provider-ssh_v2.7.0: configuring server automatic mTLS: timestamp=2026-10-16T16:57:20.876-0500
+2026-10-16T16:57:20.876-0500 [INFO]  provider.terraform-provider-http: configuring server automatic mTLS: timestamp=2026-10-16T16:57:20.876-0500
+2026-10-16T16:57:20.876-0500 [INFO]  provider.terraform-provider-pcd_v0.1.20: configuring server automatic mTLS: timestamp=2026-10-16T16:57:20.876-0500
+2026-10-16T16:57:20.880-0500 [INFO]  provider.terraform-provider-onepassword_v3.3.1: configuring server automatic mTLS: timestamp=2026-10-16T16:57:20.880-0500
+2026-10-16T16:57:20.882-0500 [DEBUG] provider.terraform-provider-ssh_v2.7.0: plugin address: address=/var/folders/jd/z0l0wws10419zhgpqvyqs5p40000gn/T/plugin430545104 network=unix timestamp=2026-10-16T16:57:20.882-0500
+2026-10-16T16:57:20.882-0500 [DEBUG] provider: using plugin: version=5
+2026-10-16T16:57:20.882-0500 [DEBUG] provider: using plugin: version=5
+2026-10-16T16:57:20.882-0500 [DEBUG] provider.terraform-provider-pcd_v0.1.20: plugin address: address=/var/folders/jd/z0l0wws10419zhgpqvyqs5p40000gn/T/plugin2898091477 network=unix timestamp=2026-10-16T16:57:20.882-0500
+2026-10-16T16:57:20.882-0500 [DEBUG] provider: using plugin: version=6
+2026-10-16T16:57:20.882-0500 [DEBUG] provider.terraform-provider-http: plugin address: address=/var/folders/jd/z0l0wws10419zhgpqvyqs5p40000gn/T/plugin1004152466 network=unix timestamp=2026-10-16T16:57:20.882-0500
+2026-10-16T16:57:20.886-0500 [DEBUG] provider: using plugin: version=6
+2026-10-16T16:57:20.886-0500 [DEBUG] provider.terraform-provider-onepassword_v3.3.1: plugin address: address=/var/folders/jd/z0l0wws10419zhgpqvyqs5p40000gn/T/plugin2408615147 network=unix timestamp=2026-10-16T16:57:20.886-0500
+2026-10-16T16:57:20.887-0500 [DEBUG] No provider meta schema returned
+2026-10-16T16:57:20.888-0500 [DEBUG] provider.stdio: received EOF, stopping recv loop: err="rpc error: code = Unavailable desc = error reading from server: EOF"
+2026-10-16T16:57:20.889-0500 [DEBUG] provider.stdio: received EOF, stopping recv loop: err="rpc error: code = Unavailable desc = error reading from server: EOF"
+2026-10-16T16:57:20.889-0500 [INFO]  provider: plugin process exited: plugin=.terraform/providers/registry.terraform.io/loafoe/ssh/2.7.0/darwin_arm64/terraform-provider-ssh_v2.7.0 id=21525
+2026-10-16T16:57:20.890-0500 [INFO]  provider: plugin process exited: plugin=.terraform/providers/registry.opentofu.org/hashicorp/http/3.6.2/darwin_arm64/terraform-provider-http id=21526
+2026-10-16T16:57:20.896-0500 [DEBUG] provider: plugin exited
+2026-10-16T16:57:20.896-0500 [DEBUG] provider: plugin exited
+2026-10-16T16:57:20.897-0500 [DEBUG] No provider meta schema returned
+2026-10-16T16:57:20.898-0500 [DEBUG] No provider meta schema returned
+2026-10-16T16:57:20.898-0500 [DEBUG] provider.stdio: received EOF, stopping recv loop: err="rpc error: code = Unavailable desc = error reading from server: EOF"
+2026-10-16T16:57:20.899-0500 [INFO]  provider: plugin process exited: plugin=.terraform/providers/registry.opentofu.org/1password/onepassword/3.3.1/darwin_arm64/terraform-provider-onepassword_v3.3.1 id=21527
+2026-10-16T16:57:20.901-0500 [DEBUG] provider: plugin exited
+2026-10-16T16:57:20.901-0500 [DEBUG] provider.stdio: received EOF, stopping recv loop: err="rpc error: code = Unavailable desc = error reading from server: EOF"
+2026-10-16T16:57:20.902-0500 [INFO]  provider: plugin process exited: plugin=.terraform/providers/registry.terraform.io/platform9/pcd/0.1.20/darwin_arm64/terraform-provider-pcd_v0.1.20 id=21524
+2026-10-16T16:57:20.903-0500 [DEBUG] provider: plugin exited
+2026-10-16T16:57:20.904-0500 [INFO]  backend/local: apply calling Apply
+2026-10-16T16:57:20.904-0500 [DEBUG] Building and walking apply graph for NormalMode plan
+2026-10-16T16:57:20.904-0500 [DEBUG] Resource state not found for node "ssh_resource.builder_ready[0]", instance ssh_resource.builder_ready[0]
+2026-10-16T16:57:20.904-0500 [DEBUG] ProviderTransformer: "ssh_resource.builder_ready[0]" (*tofu.NodeApplyableResourceInstance) needs provider["registry.terraform.io/loafoe/ssh"]
+2026-10-16T16:57:20.904-0500 [DEBUG] ProviderTransformer: "pcd_networking_secgroup_rule.ssh_ingress (expand)" (*tofu.nodeExpandApplyableResource) needs provider["registry.terraform.io/platform9/pcd"]
+2026-10-16T16:57:20.904-0500 [DEBUG] ProviderTransformer: "data.pcd_networking_network.builder (expand)" (*tofu.nodeExpandApplyableResource) needs provider["registry.terraform.io/platform9/pcd"]
+2026-10-16T16:57:20.904-0500 [DEBUG] ProviderTransformer: "data.pcd_networking_subnet.builder (expand)" (*tofu.nodeExpandApplyableResource) needs provider["registry.terraform.io/platform9/pcd"]
+2026-10-16T16:57:20.904-0500 [DEBUG] ProviderTransformer: "pcd_networking_secgroup_rule.icmpv6_ingress (expand)" (*tofu.nodeExpandApplyableResource) needs provider["registry.terraform.io/platform9/pcd"]
+2026-10-16T16:57:20.904-0500 [DEBUG] ProviderTransformer: "pcd_images_image.ubuntu_base (expand)" (*tofu.nodeExpandApplyableResource) needs provider["registry.terraform.io/platform9/pcd"]
+2026-10-16T16:57:20.904-0500 [DEBUG] ProviderTransformer: "pcd_compute_instance.builder (expand)" (*tofu.nodeExpandApplyableResource) needs provider["registry.terraform.io/platform9/pcd"]
+2026-10-16T16:57:20.904-0500 [DEBUG] ProviderTransformer: "data.http.stable (expand)" (*tofu.nodeExpandApplyableResource) needs provider["registry.opentofu.org/hashicorp/http"]
+2026-10-16T16:57:20.904-0500 [DEBUG] ProviderTransformer: "pcd_compute_flavor.builder (expand)" (*tofu.nodeExpandApplyableResource) needs provider["registry.terraform.io/platform9/pcd"]
+2026-10-16T16:57:20.904-0500 [DEBUG] ProviderTransformer: "ssh_resource.build (expand)" (*tofu.nodeExpandApplyableResource) needs provider["registry.terraform.io/loafoe/ssh"]
+2026-10-16T16:57:20.904-0500 [DEBUG] ProviderTransformer: "data.onepassword_item.pcd_admin (expand)" (*tofu.nodeExpandApplyableResource) needs provider["registry.opentofu.org/1password/onepassword"]
+2026-10-16T16:57:20.904-0500 [DEBUG] ProviderTransformer: "ssh_resource.builder_ready (expand)" (*tofu.nodeExpandApplyableResource) needs provider["registry.terraform.io/loafoe/ssh"]
+2026-10-16T16:57:20.904-0500 [DEBUG] ProviderTransformer: "pcd_networking_secgroup.builder (expand)" (*tofu.nodeExpandApplyableResource) needs provider["registry.terraform.io/platform9/pcd"]
+2026-10-16T16:57:20.904-0500 [DEBUG] ProviderTransformer: "pcd_compute_keypair.builder (expand)" (*tofu.nodeExpandApplyableResource) needs provider["registry.terraform.io/platform9/pcd"]
+2026-10-16T16:57:20.904-0500 [DEBUG] ProviderTransformer: "pcd_networking_port.builder (expand)" (*tofu.nodeExpandApplyableResource) needs provider["registry.terraform.io/platform9/pcd"]
+2026-10-16T16:57:20.904-0500 [DEBUG] ProviderTransformer: "pcd_networking_port_secgroup_associate.builder (expand)" (*tofu.nodeExpandApplyableResource) needs provider["registry.terraform.io/platform9/pcd"]
+2026-10-16T16:57:20.905-0500 [DEBUG] ReferenceTransformer: "var.pcd_auth_url" references: []
+2026-10-16T16:57:20.905-0500 [DEBUG] ReferenceTransformer: "var.builder_interface_name (expand, reference)" references: []
+2026-10-16T16:57:20.905-0500 [DEBUG] ReferenceTransformer: "var.onepassword_item_title" references: []
+2026-10-16T16:57:20.905-0500 [DEBUG] ReferenceTransformer: "var.builder_flavor (expand, reference)" references: []
+2026-10-16T16:57:20.905-0500 [DEBUG] ReferenceTransformer: "output.ubuntu_base_image_id (expand)" references: [pcd_images_image.ubuntu_base (expand)]
+2026-10-16T16:57:20.905-0500 [DEBUG] ReferenceTransformer: "local.extra_label (expand)" references: [var.extra_packer_vars (expand, reference) var.extra_packer_vars var.extra_packer_vars (expand, reference) var.extra_packer_vars]
+2026-10-16T16:57:20.905-0500 [DEBUG] ReferenceTransformer: "output.builder_address (expand)" references: [local.builder_address (expand)]
+2026-10-16T16:57:20.905-0500 [DEBUG] ReferenceTransformer: "var.builder_enabled" references: []
+2026-10-16T16:57:20.905-0500 [DEBUG] ReferenceTransformer: "var.builder_dns64_servers" references: []
+2026-10-16T16:57:20.905-0500 [DEBUG] ReferenceTransformer: "var.image_visibility (expand, reference)" references: [var.image_visibility]
+2026-10-16T16:57:20.905-0500 [DEBUG] ReferenceTransformer: "var.glance_interface (expand, reference)" references: []
+2026-10-16T16:57:20.905-0500 [DEBUG] ReferenceTransformer: "ssh_resource.builder_ready (expand)" references: [var.builder_enabled var.builder_enabled (expand, reference) pcd_compute_instance.builder (expand) var.image_builder_ref (expand, reference) var.image_builder_ref local.builder_address (expand)]
+2026-10-16T16:57:20.905-0500 [DEBUG] ReferenceTransformer: "var.pcd_project_domain_id (expand, reference)" references: []
+2026-10-16T16:57:20.905-0500 [DEBUG] ReferenceTransformer: "var.kubernetes_deb_revision (expand, reference)" references: []
+2026-10-16T16:57:20.905-0500 [DEBUG] ReferenceTransformer: "var.builder_ssh_public_key (expand, reference)" references: []
+2026-10-16T16:57:20.905-0500 [DEBUG] ReferenceTransformer: "var.image_builder_ref (expand, reference)" references: []
+2026-10-16T16:57:20.905-0500 [DEBUG] ReferenceTransformer: "var.onepassword_account" references: []
+2026-10-16T16:57:20.905-0500 [DEBUG] ReferenceTransformer: "var.pcd_tenant_name (expand, reference)" references: []
+2026-10-16T16:57:20.905-0500 [DEBUG] ReferenceTransformer: "local.builds (expand)" references: [var.kubernetes_versions (expand, reference) var.kubernetes_versions data.http.stable (expand)]
+2026-10-16T16:57:20.905-0500 [DEBUG] ReferenceTransformer: "pcd_networking_secgroup.builder (expand)" references: [var.builder_name (expand, reference) var.builder_name]
+2026-10-16T16:57:20.905-0500 [DEBUG] ReferenceTransformer: "var.image_visibility" references: []
+2026-10-16T16:57:20.905-0500 [DEBUG] ReferenceTransformer: "var.glance_interface" references: []
+2026-10-16T16:57:20.905-0500 [DEBUG] ReferenceTransformer: "var.pcd_region" references: []
+2026-10-16T16:57:20.905-0500 [DEBUG] ReferenceTransformer: "var.builder_ssh_public_key" references: []
+2026-10-16T16:57:20.905-0500 [DEBUG] ReferenceTransformer: "output.builder_instance_id (expand)" references: [var.builder_enabled var.builder_enabled (expand, reference) pcd_compute_instance.builder (expand)]
+2026-10-16T16:57:20.905-0500 [DEBUG] ReferenceTransformer: "provider[\"registry.terraform.io/loafoe/ssh\"]" references: []
+2026-10-16T16:57:20.905-0500 [DEBUG] ReferenceTransformer: "pcd_compute_keypair.builder (expand)" references: [var.builder_ssh_public_key (expand, reference) var.builder_ssh_public_key var.builder_name (expand, reference) var.builder_name]
+2026-10-16T16:57:20.905-0500 [DEBUG] ReferenceTransformer: "pcd_networking_port.builder (expand)" references: [var.builder_enabled var.builder_enabled (expand, reference) var.builder_name (expand, reference) var.builder_name data.pcd_networking_network.builder (expand) data.pcd_networking_subnet.builder (expand)]
+2026-10-16T16:57:20.905-0500 [DEBUG] ReferenceTransformer: "var.builder_interface_name" references: []
+2026-10-16T16:57:20.905-0500 [DEBUG] ReferenceTransformer: "local.images (expand)" references: [local.builds (expand) local.ref_label (expand) local.extra_label (expand) var.kubernetes_deb_revision (expand, reference) var.kubernetes_deb_revision var.extra_packer_vars (expand, reference) var.extra_packer_vars]
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "var.pcd_project_domain_id" references: []
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "var.base_image_url (expand, reference)" references: []
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "var.builder_network_name" references: []
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "var.builder_enabled (expand, reference)" references: []
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "pcd_networking_port_secgroup_associate.builder (expand)" references: [var.builder_enabled var.builder_enabled (expand, reference) pcd_networking_port.builder (expand) pcd_networking_secgroup.builder (expand)]
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "var.builder_name (expand, reference)" references: []
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "var.kubernetes_versions (expand, reference)" references: [var.kubernetes_versions var.kubernetes_versions var.kubernetes_versions var.kubernetes_versions var.kubernetes_versions]
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "ssh_resource.builder_ready[0]" references: [var.builder_enabled var.builder_enabled (expand, reference) pcd_compute_instance.builder (expand) var.image_builder_ref (expand, reference) var.image_builder_ref local.builder_address (expand)]
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "provider[\"registry.opentofu.org/hashicorp/http\"]" references: []
+2026-10-16T16:57:20.906-0500 [INFO]  ReferenceTransformer: reference not found: "each.value"
+2026-10-16T16:57:20.906-0500 [INFO]  ReferenceTransformer: reference not found: "each.value"
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "pcd_networking_secgroup_rule.ssh_ingress (expand)" references: [var.builder_ssh_allowed_prefixes var.builder_ssh_allowed_prefixes (expand, reference) pcd_networking_secgroup.builder (expand)]
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "var.pcd_user_domain_id (expand, reference)" references: []
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "var.builder_flavor" references: []
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "var.kubernetes_versions" references: []
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "var.base_image_name" references: []
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "data.pcd_networking_network.builder (expand)" references: [var.builder_network_name var.builder_network_name (expand, reference)]
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "data.pcd_networking_subnet.builder (expand)" references: [data.pcd_networking_network.builder (expand) var.builder_subnet_name var.builder_subnet_name (expand, reference)]
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "var.onepassword_account (expand, reference)" references: []
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "var.extra_packer_vars (expand, reference)" references: []
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "var.pcd_tenant_name" references: []
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "var.onepassword_item_title (expand, reference)" references: []
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "var.builder_ssh_allowed_prefixes" references: []
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "var.builder_ssh_allowed_prefixes (expand, reference)" references: []
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "local.builder_address (expand)" references: [var.builder_enabled var.builder_enabled (expand, reference) pcd_networking_port.builder (expand)]
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "output.images (expand)" references: [ssh_resource.build (expand) local.images (expand) local.images (expand) local.images (expand) local.images (expand)]
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "pcd_networking_secgroup_rule.icmpv6_ingress (expand)" references: [pcd_networking_secgroup.builder (expand)]
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "pcd_images_image.ubuntu_base (expand)" references: [var.base_image_url (expand, reference) var.base_image_url var.base_image_name var.base_image_name (expand, reference)]
+2026-10-16T16:57:20.906-0500 [INFO]  ReferenceTransformer: reference not found: "path.module"
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "pcd_compute_instance.builder (expand)" references: [pcd_networking_port_secgroup_associate.builder (expand) var.builder_enabled var.builder_enabled (expand, reference) pcd_images_image.ubuntu_base (expand) var.builder_name (expand, reference) var.builder_name var.image_builder_ref (expand, reference) var.image_builder_ref var.builder_dns64_servers var.builder_dns64_servers (expand, reference) var.builder_interface_name (expand, reference) var.builder_interface_name pcd_networking_port.builder (expand) data.pcd_networking_subnet.builder (expand) pcd_compute_keypair.builder (expand) pcd_compute_flavor.builder (expand) pcd_networking_port.builder (expand)]
+2026-10-16T16:57:20.906-0500 [INFO]  ReferenceTransformer: reference not found: "each.value"
+2026-10-16T16:57:20.906-0500 [INFO]  ReferenceTransformer: reference not found: "self"
+2026-10-16T16:57:20.906-0500 [INFO]  ReferenceTransformer: reference not found: "each.value"
+2026-10-16T16:57:20.906-0500 [INFO]  ReferenceTransformer: reference not found: "self"
+2026-10-16T16:57:20.906-0500 [INFO]  ReferenceTransformer: reference not found: "each.value"
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "data.http.stable (expand)" references: [var.kubernetes_versions (expand, reference) var.kubernetes_versions]
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "var.pcd_user_domain_id" references: []
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "var.base_image_name (expand, reference)" references: []
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "var.onepassword_vault" references: []
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "pcd_compute_flavor.builder (expand)" references: [var.builder_flavor (expand, reference) var.builder_flavor var.builder_flavor (expand, reference) var.builder_flavor var.builder_flavor (expand, reference) var.builder_flavor var.builder_name (expand, reference) var.builder_name]
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "var.builder_dns64_servers (expand, reference)" references: []
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "provider[\"registry.opentofu.org/1password/onepassword\"]" references: [var.onepassword_account var.onepassword_account (expand, reference)]
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "var.kubernetes_deb_revision" references: []
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "var.pcd_region (expand, reference)" references: []
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "var.builder_network_name (expand, reference)" references: []
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "var.extra_packer_vars" references: []
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "local.ref_label (expand)" references: [var.image_builder_ref (expand, reference) var.image_builder_ref var.image_builder_ref (expand, reference) var.image_builder_ref var.image_builder_ref (expand, reference) var.image_builder_ref]
+2026-10-16T16:57:20.906-0500 [INFO]  ReferenceTransformer: reference not found: "each.value"
+2026-10-16T16:57:20.906-0500 [INFO]  ReferenceTransformer: reference not found: "each.key"
+2026-10-16T16:57:20.906-0500 [INFO]  ReferenceTransformer: reference not found: "each.value"
+2026-10-16T16:57:20.906-0500 [INFO]  ReferenceTransformer: reference not found: "each.key"
+2026-10-16T16:57:20.906-0500 [INFO]  ReferenceTransformer: reference not found: "each.key"
+2026-10-16T16:57:20.906-0500 [INFO]  ReferenceTransformer: reference not found: "each.key"
+2026-10-16T16:57:20.906-0500 [INFO]  ReferenceTransformer: reference not found: "path.module"
+2026-10-16T16:57:20.906-0500 [INFO]  ReferenceTransformer: reference not found: "each.key"
+2026-10-16T16:57:20.906-0500 [INFO]  ReferenceTransformer: reference not found: "each.value"
+2026-10-16T16:57:20.906-0500 [INFO]  ReferenceTransformer: reference not found: "each.value"
+2026-10-16T16:57:20.906-0500 [INFO]  ReferenceTransformer: reference not found: "each.value"
+2026-10-16T16:57:20.906-0500 [INFO]  ReferenceTransformer: reference not found: "each.value"
+2026-10-16T16:57:20.906-0500 [INFO]  ReferenceTransformer: reference not found: "each.value"
+2026-10-16T16:57:20.906-0500 [INFO]  ReferenceTransformer: reference not found: "each.value"
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "ssh_resource.build (expand)" references: [ssh_resource.builder_ready (expand) ssh_resource.builder_ready[0] var.builder_enabled var.builder_enabled (expand, reference) local.images (expand) local.builder_address (expand) var.pcd_auth_url var.pcd_auth_url (expand, reference) var.pcd_region var.pcd_region (expand, reference) data.onepassword_item.pcd_admin (expand) data.onepassword_item.pcd_admin (expand) var.pcd_tenant_name (expand, reference) var.pcd_tenant_name var.pcd_user_domain_id (expand, reference) var.pcd_user_domain_id var.pcd_project_domain_id (expand, reference) var.pcd_project_domain_id var.glance_interface (expand, reference) var.glance_interface var.image_visibility (expand, reference) var.image_visibility var.image_builder_ref (expand, reference) var.image_builder_ref]
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "data.onepassword_item.pcd_admin (expand)" references: [var.onepassword_vault var.onepassword_vault (expand, reference) var.onepassword_item_title var.onepassword_item_title (expand, reference)]
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "var.builder_name" references: []
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "var.pcd_auth_url (expand, reference)" references: []
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "var.image_builder_ref" references: []
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "var.builder_subnet_name" references: []
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "var.builder_subnet_name (expand, reference)" references: []
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "provider[\"registry.terraform.io/platform9/pcd\"]" references: [data.onepassword_item.pcd_admin (expand) data.onepassword_item.pcd_admin (expand) var.pcd_project_domain_id (expand, reference) var.pcd_project_domain_id var.pcd_tenant_name (expand, reference) var.pcd_tenant_name var.pcd_user_domain_id (expand, reference) var.pcd_user_domain_id var.pcd_region var.pcd_region (expand, reference) var.pcd_auth_url var.pcd_auth_url (expand, reference)]
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "var.base_image_url" references: []
+2026-10-16T16:57:20.906-0500 [DEBUG] ReferenceTransformer: "var.onepassword_vault (expand, reference)" references: []
+2026-10-16T16:57:20.907-0500 [DEBUG] pruneUnusedNodes: pcd_networking_secgroup_rule.icmpv6_ingress (expand) is no longer needed, removing
+2026-10-16T16:57:20.907-0500 [DEBUG] pruneUnusedNodes: ssh_resource.build (expand) is no longer needed, removing
+2026-10-16T16:57:20.907-0500 [DEBUG] pruneUnusedNodes: var.glance_interface (expand, reference) is no longer needed, removing
+2026-10-16T16:57:20.907-0500 [DEBUG] pruneUnusedNodes: pcd_networking_secgroup_rule.ssh_ingress (expand) is no longer needed, removing
+2026-10-16T16:57:20.907-0500 [DEBUG] pruneUnusedNodes: var.builder_ssh_allowed_prefixes (expand, reference) is no longer needed, removing
+2026-10-16T16:57:20.907-0500 [DEBUG] Removing "var.kubernetes_deb_revision", filtered by targeting.
+2026-10-16T16:57:20.907-0500 [DEBUG] Removing "var.extra_packer_vars", filtered by targeting.
+2026-10-16T16:57:20.907-0500 [DEBUG] Removing "local.ref_label (expand)", filtered by targeting.
+2026-10-16T16:57:20.907-0500 [DEBUG] Removing "local.extra_label (expand)", filtered by targeting.
+2026-10-16T16:57:20.907-0500 [DEBUG] Removing "var.image_visibility (expand, reference)", filtered by targeting.
+2026-10-16T16:57:20.907-0500 [DEBUG] Removing "var.kubernetes_deb_revision (expand, reference)", filtered by targeting.
+2026-10-16T16:57:20.907-0500 [DEBUG] Removing "local.builds (expand)", filtered by targeting.
+2026-10-16T16:57:20.907-0500 [DEBUG] Removing "var.image_visibility", filtered by targeting.
+2026-10-16T16:57:20.907-0500 [DEBUG] Removing "var.glance_interface", filtered by targeting.
+2026-10-16T16:57:20.907-0500 [DEBUG] Removing "local.images (expand)", filtered by targeting.
+2026-10-16T16:57:20.907-0500 [DEBUG] Removing "var.kubernetes_versions (expand, reference)", filtered by targeting.
+2026-10-16T16:57:20.907-0500 [DEBUG] Removing "provider[\"registry.opentofu.org/hashicorp/http\"]", filtered by targeting.
+2026-10-16T16:57:20.907-0500 [DEBUG] Removing "var.kubernetes_versions", filtered by targeting.
+2026-10-16T16:57:20.907-0500 [DEBUG] Removing "var.extra_packer_vars (expand, reference)", filtered by targeting.
+2026-10-16T16:57:20.907-0500 [DEBUG] Removing "var.builder_ssh_allowed_prefixes", filtered by targeting.
+2026-10-16T16:57:20.907-0500 [DEBUG] Removing "output.images (expand)", filtered by targeting.
+2026-10-16T16:57:20.907-0500 [DEBUG] Removing "data.http.stable (expand)", filtered by targeting.
+2026-10-16T16:57:20.908-0500 [DEBUG] Starting graph walk: walkApply
+2026-10-16T16:57:20.909-0500 [DEBUG] created provider logger: level=debug
+2026-10-16T16:57:20.909-0500 [INFO]  provider: configuring client automatic mTLS
+2026-10-16T16:57:20.911-0500 [DEBUG] provider: starting plugin: path=.terraform/providers/registry.opentofu.org/1password/onepassword/3.3.1/darwin_arm64/terraform-provider-onepassword_v3.3.1 args=[".terraform/providers/registry.opentofu.org/1password/onepassword/3.3.1/darwin_arm64/terraform-provider-onepassword_v3.3.1"]
+2026-10-16T16:57:20.913-0500 [DEBUG] provider: plugin started: path=.terraform/providers/registry.opentofu.org/1password/onepassword/3.3.1/darwin_arm64/terraform-provider-onepassword_v3.3.1 pid=21528
+2026-10-16T16:57:20.913-0500 [DEBUG] provider: waiting for RPC address: plugin=.terraform/providers/registry.opentofu.org/1password/onepassword/3.3.1/darwin_arm64/terraform-provider-onepassword_v3.3.1
+2026-10-16T16:57:20.919-0500 [INFO]  provider.terraform-provider-onepassword_v3.3.1: configuring server automatic mTLS: timestamp=2026-10-16T16:57:20.919-0500
+2026-10-16T16:57:20.924-0500 [DEBUG] provider.terraform-provider-onepassword_v3.3.1: plugin address: address=/var/folders/jd/z0l0wws10419zhgpqvyqs5p40000gn/T/plugin202564902 network=unix timestamp=2026-10-16T16:57:20.924-0500
+2026-10-16T16:57:20.924-0500 [DEBUG] provider: using plugin: version=6
+2026-10-16T16:57:22.826-0500 [DEBUG] created provider logger: level=debug
+2026-10-16T16:57:22.827-0500 [INFO]  provider: configuring client automatic mTLS
+2026-10-16T16:57:22.829-0500 [DEBUG] provider.stdio: received EOF, stopping recv loop: err="rpc error: code = Unavailable desc = error reading from server: EOF"
+2026-10-16T16:57:22.831-0500 [INFO]  provider: plugin process exited: plugin=.terraform/providers/registry.opentofu.org/1password/onepassword/3.3.1/darwin_arm64/terraform-provider-onepassword_v3.3.1 id=21528
+2026-10-16T16:57:22.835-0500 [DEBUG] provider: starting plugin: path=.terraform/providers/registry.terraform.io/loafoe/ssh/2.7.0/darwin_arm64/terraform-provider-ssh_v2.7.0 args=[".terraform/providers/registry.terraform.io/loafoe/ssh/2.7.0/darwin_arm64/terraform-provider-ssh_v2.7.0"]
+2026-10-16T16:57:22.835-0500 [DEBUG] provider: plugin exited
+2026-10-16T16:57:22.840-0500 [DEBUG] provider: plugin started: path=.terraform/providers/registry.terraform.io/loafoe/ssh/2.7.0/darwin_arm64/terraform-provider-ssh_v2.7.0 pid=21530
+2026-10-16T16:57:22.840-0500 [DEBUG] provider: waiting for RPC address: plugin=.terraform/providers/registry.terraform.io/loafoe/ssh/2.7.0/darwin_arm64/terraform-provider-ssh_v2.7.0
+2026-10-16T16:57:22.855-0500 [INFO]  provider.terraform-provider-ssh_v2.7.0: configuring server automatic mTLS: timestamp=2026-10-16T16:57:22.855-0500
+2026-10-16T16:57:22.865-0500 [DEBUG] provider.terraform-provider-ssh_v2.7.0: plugin address: address=/var/folders/jd/z0l0wws10419zhgpqvyqs5p40000gn/T/plugin3946082183 network=unix timestamp=2026-10-16T16:57:22.865-0500
+2026-10-16T16:57:22.865-0500 [DEBUG] provider: using plugin: version=5
+2026-10-16T16:57:22.873-0500 [WARN]  ValidateProviderConfig from "registry.terraform.io/loafoe/ssh" changed the config value, but that value is unused
+2026-10-16T16:57:22.873-0500 [DEBUG] created provider logger: level=debug
+2026-10-16T16:57:22.873-0500 [INFO]  provider: configuring client automatic mTLS
+2026-10-16T16:57:22.876-0500 [DEBUG] provider: starting plugin: path=.terraform/providers/registry.terraform.io/platform9/pcd/0.1.20/darwin_arm64/terraform-provider-pcd_v0.1.20 args=[".terraform/providers/registry.terraform.io/platform9/pcd/0.1.20/darwin_arm64/terraform-provider-pcd_v0.1.20"]
+2026-10-16T16:57:22.878-0500 [DEBUG] provider: plugin started: path=.terraform/providers/registry.terraform.io/platform9/pcd/0.1.20/darwin_arm64/terraform-provider-pcd_v0.1.20 pid=21531
+2026-10-16T16:57:22.878-0500 [DEBUG] provider: waiting for RPC address: plugin=.terraform/providers/registry.terraform.io/platform9/pcd/0.1.20/darwin_arm64/terraform-provider-pcd_v0.1.20
+2026-10-16T16:57:22.886-0500 [INFO]  provider.terraform-provider-pcd_v0.1.20: configuring server automatic mTLS: timestamp=2026-10-16T16:57:22.886-0500
+2026-10-16T16:57:22.892-0500 [DEBUG] provider.terraform-provider-pcd_v0.1.20: plugin address: address=/var/folders/jd/z0l0wws10419zhgpqvyqs5p40000gn/T/plugin2366662356 network=unix timestamp=2026-10-16T16:57:22.892-0500
+2026-10-16T16:57:22.892-0500 [DEBUG] provider: using plugin: version=6
+2026-10-16T16:57:23.108-0500 [DEBUG] provider.stdio: received EOF, stopping recv loop: err="rpc error: code = Unavailable desc = error reading from server: EOF"
+2026-10-16T16:57:23.111-0500 [INFO]  provider: plugin process exited: plugin=.terraform/providers/registry.terraform.io/platform9/pcd/0.1.20/darwin_arm64/terraform-provider-pcd_v0.1.20 id=21531
+2026-10-16T16:57:23.114-0500 [DEBUG] provider: plugin exited
+2026-10-16T16:57:23.115-0500 [WARN]  Provider "provider[\"registry.terraform.io/loafoe/ssh\"]" produced an invalid plan for ssh_resource.builder_ready[0], but we are tolerating it because it is using the legacy plugin SDK.
+    The following problems may be the cause of any confusing errors from downstream operations:
+      - .bastion_port: planned value cty.StringVal("22") for a non-computed attribute
+      - .port: planned value cty.StringVal("22") for a non-computed attribute
+      - .commands_after_file_changes: planned value cty.True for a non-computed attribute
+      - .ignore_no_supported_methods_remain: planned value cty.False for a non-computed attribute
+2026-10-16T16:57:23.116-0500 [INFO]  Starting apply for ssh_resource.builder_ready[0]
+2026-10-16T16:57:23.117-0500 [DEBUG] ssh_resource.builder_ready[0]: applying the planned Create change
+2026-10-16T16:57:23.120-0500 [ERROR] provider.terraform-provider-ssh_v2.7.0: panic: runtime error: invalid memory address or nil pointer dereference
+2026-10-16T16:57:23.120-0500 [ERROR] provider.terraform-provider-ssh_v2.7.0: [signal SIGSEGV: segmentation violation code=0x2 addr=0x10 pc=0x105151748]
+2026-10-16T16:57:23.120-0500 [ERROR] provider.terraform-provider-ssh_v2.7.0
+2026-10-16T16:57:23.120-0500 [ERROR] provider.terraform-provider-ssh_v2.7.0: goroutine 55 [running]:
+2026-10-16T16:57:23.120-0500 [ERROR] provider.terraform-provider-ssh_v2.7.0: net/http.ProxyFromEnvironment(0x0)
+2026-10-16T16:57:23.120-0500 [ERROR] provider.terraform-provider-ssh_v2.7.0: 	net/http/transport.go:449 +0x28
+2026-10-16T16:57:23.120-0500 [ERROR] provider.terraform-provider-ssh_v2.7.0: github.com/loafoe/easyssh-proxy/v2.(*MakeConfig).Connect(0x14000202df8)
+2026-10-16T16:57:23.120-0500 [ERROR] provider.terraform-provider-ssh_v2.7.0: 	github.com/loafoe/easyssh-proxy/v2@v2.0.4/easyssh.go:215 +0x1c8
+2026-10-16T16:57:23.120-0500 [ERROR] provider.terraform-provider-ssh_v2.7.0: github.com/loafoe/easyssh-proxy/v2.(*MakeConfig).Stream(0x1055445e0?, {0x140004d4580, 0x2b4}, {0x1400028a010, 0x1, 0x1})
+2026-10-16T16:57:23.120-0500 [ERROR] provider.terraform-provider-ssh_v2.7.0: 	github.com/loafoe/easyssh-proxy/v2@v2.0.4/easyssh.go:340 +0x8c
+2026-10-16T16:57:23.120-0500 [ERROR] provider.terraform-provider-ssh_v2.7.0: github.com/loafoe/easyssh-proxy/v2.(*MakeConfig).Run(0x14000202978?, {0x140004d4580?, 0x14000202a18?}, {0x1400028a010?, 0x14000000001?, 0x140004b2000?})
+2026-10-16T16:57:23.121-0500 [ERROR] provider.terraform-provider-ssh_v2.7.0: 	github.com/loafoe/easyssh-proxy/v2@v2.0.4/easyssh.go:425 +0x30
+2026-10-16T16:57:23.121-0500 [ERROR] provider.terraform-provider-ssh_v2.7.0: github.com/loafoe/terraform-provider-ssh/ssh.runCommands({0x105685b70, 0x14000180d20}, {0x140002431b0, 0x1, 0x14000420318?}, 0x105ba52e0?, {0x0?, 0x0?, 0x38?}, {0x105580080?, ...})
+2026-10-16T16:57:23.121-0500 [ERROR] provider.terraform-provider-ssh_v2.7.0: 	github.com/loafoe/terraform-provider-ssh/ssh/resource_resource.go:464 +0x138
+2026-10-16T16:57:23.121-0500 [ERROR] provider.terraform-provider-ssh_v2.7.0: github.com/loafoe/terraform-provider-ssh/ssh.mainRun({0x14000242b90?, 0x1053cfda8?}, 0x140001807e0?, {0x105580080?, 0x14000420318}, 0x0)
+2026-10-16T16:57:23.121-0500 [ERROR] provider.terraform-provider-ssh_v2.7.0: 	github.com/loafoe/terraform-provider-ssh/ssh/resource_resource.go:406 +0x744
+2026-10-16T16:57:23.121-0500 [ERROR] provider.terraform-provider-ssh_v2.7.0: github.com/loafoe/terraform-provider-ssh/ssh.resourceResourceCreate({0x105685b70, 0x140001807e0}, 0x0?, {0x105580080, 0x14000420318})
+2026-10-16T16:57:23.121-0500 [ERROR] provider.terraform-provider-ssh_v2.7.0: 	github.com/loafoe/terraform-provider-ssh/ssh/resource_resource.go:438 +0xa4
+2026-10-16T16:57:23.121-0500 [ERROR] provider.terraform-provider-ssh_v2.7.0: github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema.(*Resource).create(0x140000df0a0, {0x105685ac8, 0x14000484ff0}, 0xd?, {0x105580080, 0x14000420318})
+2026-10-16T16:57:23.121-0500 [ERROR] provider.terraform-provider-ssh_v2.7.0: 	github.com/hashicorp/terraform-plugin-sdk/v2@v2.32.0/helper/schema/resource.go:778 +0xe8
+2026-10-16T16:57:23.121-0500 [ERROR] provider.terraform-provider-ssh_v2.7.0: github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema.(*Resource).Apply(0x140000df0a0, {0x105685ac8, 0x14000484ff0}, 0x140004285b0, 0x14000197000, {0x105580080, 0x14000420318})
+2026-10-16T16:57:23.121-0500 [ERROR] provider.terraform-provider-ssh_v2.7.0: 	github.com/hashicorp/terraform-plugin-sdk/v2@v2.32.0/helper/schema/resource.go:909 +0x86c
+2026-10-16T16:57:23.121-0500 [ERROR] provider.terraform-provider-ssh_v2.7.0: github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema.(*GRPCProviderServer).ApplyResourceChange(0x14000350420, {0x105685ac8?, 0x14000484f00?}, 0x1400042e460)
+2026-10-16T16:57:23.121-0500 [ERROR] provider.terraform-provider-ssh_v2.7.0: 	github.com/hashicorp/terraform-plugin-sdk/v2@v2.32.0/helper/schema/grpc_provider.go:1077 +0xb08
+2026-10-16T16:57:23.121-0500 [ERROR] provider.terraform-provider-ssh_v2.7.0: github.com/hashicorp/terraform-plugin-go/tfprotov5/tf5server.(*server).ApplyResourceChange(0x1400026aaa0, {0x105685ac8?, 0x14000484510?}, 0x14000180000)
+2026-10-16T16:57:23.121-0500 [ERROR] provider.terraform-provider-ssh_v2.7.0: 	github.com/hashicorp/terraform-plugin-go@v0.21.0/tfprotov5/tf5server/server.go:845 +0x2b0
+2026-10-16T16:57:23.121-0500 [ERROR] provider.terraform-provider-ssh_v2.7.0: github.com/hashicorp/terraform-plugin-go/tfprotov5/internal/tfplugin5._Provider_ApplyResourceChange_Handler({0x105658ec0?, 0x1400026aaa0}, {0x105685ac8, 0x14000484510}, 0x14000196800, 0x0)
+2026-10-16T16:57:23.121-0500 [ERROR] provider.terraform-provider-ssh_v2.7.0: 	github.com/hashicorp/terraform-plugin-go@v0.21.0/tfprotov5/internal/tfplugin5/tfplugin5_grpc.pb.go:518 +0x164
+2026-10-16T16:57:23.121-0500 [ERROR] provider.terraform-provider-ssh_v2.7.0: google.golang.org/grpc.(*Server).processUnaryRPC(0x1400018f000, {0x105685ac8, 0x14000484480}, {0x105689c90, 0x1400036a9c0}, 0x1400043e000, 0x14000359d10, 0x105b63018, 0x0)
+2026-10-16T16:57:23.121-0500 [ERROR] provider.terraform-provider-ssh_v2.7.0: 	google.golang.org/grpc@v1.61.0/server.go:1385 +0xb8c
+2026-10-16T16:57:23.121-0500 [ERROR] provider.terraform-provider-ssh_v2.7.0: google.golang.org/grpc.(*Server).handleStream(0x1400018f000, {0x105689c90, 0x1400036a9c0}, 0x1400043e000)
+2026-10-16T16:57:23.121-0500 [ERROR] provider.terraform-provider-ssh_v2.7.0: 	google.golang.org/grpc@v1.61.0/server.go:1796 +0xc4c
+2026-10-16T16:57:23.121-0500 [ERROR] provider.terraform-provider-ssh_v2.7.0: google.golang.org/grpc.(*Server).serveStreams.func2.1()
+2026-10-16T16:57:23.121-0500 [ERROR] provider.terraform-provider-ssh_v2.7.0: 	google.golang.org/grpc@v1.61.0/server.go:1029 +0x8c
+2026-10-16T16:57:23.121-0500 [ERROR] provider.terraform-provider-ssh_v2.7.0: created by google.golang.org/grpc.(*Server).serveStreams.func2 in goroutine 13
+2026-10-16T16:57:23.121-0500 [ERROR] provider.terraform-provider-ssh_v2.7.0: 	google.golang.org/grpc@v1.61.0/server.go:1040 +0x150
+2026-10-16T16:57:23.123-0500 [ERROR] provider: plugin process exited: plugin=.terraform/providers/registry.terraform.io/loafoe/ssh/2.7.0/darwin_arm64/terraform-provider-ssh_v2.7.0 id=21530 error="exit status 2"
+2026-10-16T16:57:23.123-0500 [DEBUG] provider.stdio: received EOF, stopping recv loop: err="rpc error: code = Unavailable desc = error reading from server: EOF"
+2026-10-16T16:57:23.123-0500 [ERROR] plugin.(*GRPCProvider).ApplyResourceChange: error="rpc error: code = Unavailable desc = error reading from server: EOF"
+2026-10-16T16:57:23.123-0500 [DEBUG] State storage *statemgr.Filesystem declined to persist a state snapshot
+2026-10-16T16:57:23.123-0500 [ERROR] vertex "ssh_resource.builder_ready[0]" error: Plugin did not respond
+2026-10-16T16:57:23.133-0500 [DEBUG] provider: plugin exited

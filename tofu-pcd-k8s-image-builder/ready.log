@@ -1,0 +1,24 @@
+ssh_resource.builder_ready[0]: Creating...
+
+Warning: Applied changes may be incomplete
+
+The plan was created with the -target or the -exclude option in effect, so
+some changes requested in the configuration may have been ignored and the
+output values may not be fully updated. Run the following command to verify
+that no other changes are pending:
+    tofu plan
+	
+Note that the -target and -exclude options are not suitable for routine use,
+and are provided only for exceptional situations such as recovering from
+errors or mistakes, or when OpenTofu specifically suggests to use it as part
+of an error message.
+
+Error: Plugin did not respond
+
+  with ssh_resource.builder_ready[0],
+  on builder.tf line 105, in resource "ssh_resource" "builder_ready":
+ 105: resource "ssh_resource" "builder_ready" {
+
+The plugin encountered an error, and failed to respond to the
+plugin.(*GRPCProvider).ApplyResourceChange call. The plugin logs may contain
+more details.
