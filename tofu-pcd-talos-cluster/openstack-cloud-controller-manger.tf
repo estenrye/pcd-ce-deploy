@@ -75,6 +75,12 @@ resource "local_sensitive_file" "occm_values" {
 # false disables. This reproduces that same INI rendering by hand.
 locals {
   occm_cloud_conf = join("\n", compact([
+    # [BlockStorage] is read by cinder-csi-plugin (see cinder-csi.tf). PCD's
+    # Nova zone (pcd-ce-lab, what the nodes' topology labels carry) differs from
+    # its Cinder zone (nova, var.cinder_availability_zone). Without
+    # ignore-volume-az the driver pins each PV to the Cinder zone via node
+    # affinity, which no node matches, so pods using the volume never schedule.
+    # With it, the PV's affinity follows the node topology instead.
     <<-EOT
     [Global]
     application-credential-id = "${pcd_identity_application_credential.occm.id}"
@@ -88,6 +94,9 @@ locals {
     lb-method = "SOURCE_IP_PORT"
     lb-provider = "ovn"
     subnet-id = "${data.pcd_networking_subnet.bgp.id}"
+
+    [BlockStorage]
+    ignore-volume-az = true
     EOT
     ,
     # Read by barbican-kms-plugin (see kms.tf), which shares this file.

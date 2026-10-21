@@ -2,6 +2,12 @@
 # talos.tf), modelled on the upstream chart's templates/storageclass.yaml.
 # Delivered as Talos inlineManifests next to the Calico objects, so applying
 # them needs no Kubernetes API access from tofu.
+#
+# Zones: PCD's Nova zone (pcd-ce-lab, on the node topology labels) differs from
+# its Cinder zone (nova). The classes' `availability` parameter therefore names
+# the Cinder zone (var.cinder_availability_zone), and the cloud-config Secret
+# (openstack-cloud-controller-manger.tf) sets [BlockStorage] ignore-volume-az so
+# the driver does not pin PVs to that zone via node affinity.
 locals {
   cinder_sc_parameters = {
     for name, sc in var.cinder_storage_classes : name => merge(
