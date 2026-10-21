@@ -1,5 +1,54 @@
 # VM build fails: "Failed to connect to Glance image service"
 
+## Current status (2026-10-21): catalog repoint reverted — upload via the admin endpoint
+
+The catalog repoint described under "Fix applied" below **is no longer in
+effect and must not be reapplied.** `public` and `internal` have to keep
+pointing at the central k8s `glance-api` pod for PCD-K to function, even
+though that pod cannot serve image bytes Nova can read. The original
+`public`/`internal` URLs are in place again:
+
+| Interface | URL |
+|---|---|
+| `admin` | `https://10.45.60.1:9494` |
+| `public` | `https://pcd.rye.ninja/glance` |
+| `internal` | `http://glance-api.pcd.svc.cluster.local:9292` |
+
+The problem was re-tested against this reverted state and is **still
+reproducible**:
+
+- Uploading through `public` stores the image in the pod's local file store
+  (`file:///var/lib/glance/images/<id>` location). A VM build from it fails
+  with the same `GlanceConnectionFailed ... on endpoints
+  ['https://10.45.60.1:9494']` error.
+- Downloading an on-host (`cinder://`-located) image through `public`
+  returns HTTP 500 with 0 bytes (`openstack image save` reports a sha512
+  checksum mismatch); the same download from the admin endpoint returns 200
+  with the full 21,430,272 bytes.
+- A ~21 MB upload through `public` was also rejected with `413 Request
+  Entity Too Large` from nginx, a separate limit on that path.
+
+**Workaround — upload images to the admin endpoint.** Images created
+there get a `cinder://cinder/<volume>` location, which Nova reads via
+`glance-cluster`. Verified: a 21 MB image uploaded this way went `active`
+at full size and a VM booted from it (`ACTIVE`, no Glance error):
+
+```bash
+export OS_IMAGE_ENDPOINT_OVERRIDE=https://10.45.60.1:9494
+openstack --insecure image create <name> --file <img> \
+  --disk-format qcow2 --container-format bare
+```
+
+`--insecure` is needed because that endpoint serves a self-signed
+per-host cert. The tofu provider already does the equivalent via
+`insecure = true` in `tofu-pcd/providers.tf` (and its comment on the
+glance-cluster endpoint). Uploads from the PCD UI or from clients that
+resolve the catalog's `public` endpoint will still land on the wrong
+backend; check an image's `locations` (`cinder://` is good, `file://` is
+not) before relying on it.
+
+The sections below are kept as the original diagnosis and history.
+
 ## Summary
 
 Booting a VM fails every time at the image-fetch step, regardless of which
@@ -152,7 +201,10 @@ the second (Cinder-backed) instance and split the catalog without anyone
 touching `public`/`internal` — a normal, unremarkable-looking role apply
 that happens to break every future image upload for VM booting purposes.
 
-## Recommended solution
+## Recommended solution (superseded — see "Current status")
+
+> This was applied, then reverted because PCD-K needs the original
+> `public`/`internal` URLs. Use the admin-endpoint upload workaround above.
 
 **Point `public` and `internal` at the same host-level Glance instance as
 `admin`,** so upload and consumption always hit the one backend:
@@ -200,7 +252,7 @@ in a volume, `file` store writes them raw, so `admin` and `public`/
 `internal` would still be reading incompatible data, just off the same
 physical array. Not pursued.
 
-## Fix applied
+## Fix applied (later reverted — see "Current status")
 
 Repointed `public` and `internal` to match `admin`, via Keystone's v3 API
 (`PATCH /v3/endpoints/{id}`, one call per endpoint, using a token from
