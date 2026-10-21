@@ -375,8 +375,8 @@ variable "worker_flavor" {
     disk  = number
   })
   default = {
-    vcpus = 2
-    ram   = 4096
+    vcpus = 4
+    ram   = 8192
     disk  = 20
   }
 }
@@ -457,7 +457,7 @@ variable "cinder_storage_classes" {
 variable "cinder_availability_zone" {
   description = "Cinder availability zone set as the `availability` parameter on every cinder_storage_classes entry. A class can override it through its own parameters. Empty omits the parameter."
   type        = string
-  default     = "pcd-ce-lab"
+  default     = "nova"
 }
 
 variable "external_snapshotter_version" {
