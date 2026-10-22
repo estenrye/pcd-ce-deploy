@@ -203,6 +203,9 @@ locals {
             envoyService = {
               annotations           = { "projectcalico.org/ipv6pools" = jsonencode([var.envoy_proxy_pools.ingress]) }
               externalTrafficPolicy = "Cluster"
+              # Claimed by Calico's LB IPAM only; a class makes OCCM ignore the
+              # Service instead of also creating an Octavia load balancer for it.
+              loadBalancerClass = "calico"
             }
           }
         }
@@ -222,6 +225,9 @@ locals {
             envoyService = {
               annotations           = { "projectcalico.org/ipv6pools" = jsonencode([var.envoy_proxy_pools.internal]) }
               externalTrafficPolicy = "Cluster"
+              # Claimed by Calico's LB IPAM only; a class makes OCCM ignore the
+              # Service instead of also creating an Octavia load balancer for it.
+              loadBalancerClass = "calico"
             }
           }
         }
@@ -244,6 +250,9 @@ locals {
             envoyService = {
               annotations           = { "projectcalico.org/ipv6pools" = jsonencode([var.envoy_proxy_pools.ingress]) }
               externalTrafficPolicy = "Cluster"
+              # Claimed by Calico's LB IPAM only; a class makes OCCM ignore the
+              # Service instead of also creating an Octavia load balancer for it.
+              loadBalancerClass = "calico"
             }
           }
         }
@@ -263,6 +272,9 @@ locals {
             envoyService = {
               annotations           = { "projectcalico.org/ipv6pools" = jsonencode([var.envoy_proxy_pools.internal]) }
               externalTrafficPolicy = "Cluster"
+              # Claimed by Calico's LB IPAM only; a class makes OCCM ignore the
+              # Service instead of also creating an Octavia load balancer for it.
+              loadBalancerClass = "calico"
             }
           }
         }
