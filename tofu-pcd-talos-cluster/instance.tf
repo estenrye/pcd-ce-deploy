@@ -59,6 +59,7 @@ resource "pcd_networking_port_secgroup_associate" "controlplane" {
   security_group_ids = [
     pcd_networking_secgroup.talos.id,
     pcd_networking_secgroup.http.id,
+    pcd_networking_secgroup.https.id,
     data.pcd_networking_secgroup.bgp.id,
   ]
 }
@@ -93,6 +94,7 @@ resource "pcd_networking_port_secgroup_associate" "worker" {
   security_group_ids = [
     pcd_networking_secgroup.talos.id,
     pcd_networking_secgroup.http.id,
+    pcd_networking_secgroup.https.id,
     data.pcd_networking_secgroup.bgp.id,
   ]
 }

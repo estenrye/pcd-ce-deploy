@@ -97,6 +97,33 @@ resource "pcd_networking_secgroup_rule" "http_ingress" {
   remote_ip_prefix  = "::/0"
 }
 
+# HTTPS (443/tcp) for the Gateway API ingress VIPs. Kube-proxy DNATs a
+# Gateway's LoadBalancer VIP to the Envoy pods on the node's own interface, so
+# the packet reaches the node's port as 443/tcp and is filtered here first.
+# Security-group rules can't match on destination IP, so this covers the
+# internal VIP pool (fd97:45c2:b3a1:f00::1:0/112) and the public one
+# (2607:3640:1064:27f::1:0/112) alike; which clients can reach each pool is
+# decided upstream (the UniFi zone firewall and BGP routing), same as for 80.
+# Confirmed live 2026-10-24: SYNs to the netdata Gateway's internal VIP left
+# the gateway addressed to the right node but never reached its eth0.
+resource "pcd_networking_secgroup" "https" {
+  name        = "${var.cluster_name}-https"
+  description = "Inbound HTTPS (443/tcp) to the ${var.cluster_name} cluster"
+}
+
+resource "pcd_networking_secgroup_rule" "https_ingress" {
+  for_each = toset(var.https_allowed_prefixes)
+
+  security_group_id = pcd_networking_secgroup.https.id
+  description       = "Allow HTTPS (443/tcp) from ${each.value}"
+  direction         = "ingress"
+  ethertype         = "IPv6"
+  protocol          = "tcp"
+  port_range_min    = 443
+  port_range_max    = 443
+  remote_ip_prefix  = each.value
+}
+
 # With more than one node, everything the CNI, Spegel (5001/tcp), and
 # Kubernetes need between nodes -- BGP mesh sessions, overlay tunnels,
 # health checks, pod-to-pod traffic -- has to be allowed member-to-member.

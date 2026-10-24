@@ -243,6 +243,12 @@ variable "apid_allowed_prefixes" {
   default     = ["fd97:45c2:b3a1:101::/64", "fd92:b792:95e:db94::/64"]
 }
 
+variable "https_allowed_prefixes" {
+  description = "IPv6 prefixes allowed to reach 443/tcp on the nodes (the Gateway API ingress VIPs). Security-group rules can't match on destination IP, so this applies to every VIP pool at once; narrow it to restrict which clients may use the ingress, and rely on upstream routing/firewalling to separate the internal and public pools. Defaults to ::/0, matching the 80/tcp rule."
+  type        = list(string)
+  default     = ["::/0"]
+}
+
 variable "cluster_name" {
   description = "Talos/Kubernetes cluster name."
   type        = string
