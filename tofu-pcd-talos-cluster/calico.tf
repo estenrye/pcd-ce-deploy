@@ -58,6 +58,10 @@ locals {
       kubeletVolumePluginPath = "None"
       kubernetesProvider      = ""
       nonPrivileged           = "Disabled"
+      # Prometheus endpoints, scraped by the PodMonitors in flux-platform-src's
+      # applications/calico/base. calico-node and Typha run on the host network.
+      nodeMetricsPort  = var.calico_node_metrics_port
+      typhaMetricsPort = var.calico_typha_metrics_port
     }
   }
 

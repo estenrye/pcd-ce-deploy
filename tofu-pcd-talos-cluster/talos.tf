@@ -131,6 +131,11 @@ locals {
           # the cloud-config Secret that openstack-cloud-controller-manger.tf
           # creates, and tolerates that taint, so it can start before the
           # Secret exists and simply waits for it.
+          # Prometheus Operator ServiceMonitor and PodMonitor CRDs only (no
+          # operator). The OpenTelemetry collector's target allocator reads
+          # them, and Flux-managed apps ship monitors that need these kinds.
+          "https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/${var.prometheus_operator_version}/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml",
+          "https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/${var.prometheus_operator_version}/example/prometheus-operator-crd/monitoring.coreos.com_podmonitors.yaml",
           "https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/${var.occm_version}/manifests/controller-manager/cloud-controller-manager-roles.yaml",
           "https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/${var.occm_version}/manifests/controller-manager/cloud-controller-manager-role-bindings.yaml",
           "https://raw.githubusercontent.com/kubernetes/cloud-provider-openstack/${var.occm_version}/manifests/controller-manager/openstack-cloud-controller-manager-ds.yaml",

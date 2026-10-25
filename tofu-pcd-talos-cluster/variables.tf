@@ -268,9 +268,27 @@ variable "kubernetes_version" {
 }
 
 variable "calico_version" {
-  description = "Calico release (git tag, e.g. v3.32.1) whose manifests/tigera-operator.yaml is added to the cluster's extraManifests. Needs 3.32 or later for the GatewayAPI resource: v3.31.0's operator lacks RBAC to update the xbackendtrafficpolicies CRD."
+  description = "Calico release (git tag, e.g. v3.33.0) whose manifests/tigera-operator.yaml is added to the cluster's extraManifests. Needs 3.32 or later for the GatewayAPI resource: v3.31.0's operator lacks RBAC to update the xbackendtrafficpolicies CRD. Keep it in line with the tigera-operator chart version in flux-platform-src's applications/calico/base. extraManifests are only applied at bootstrap, so on a running cluster the operator upgrade itself is done by Flux."
   type        = string
-  default     = "v3.32.1"
+  default     = "v3.33.0"
+}
+
+variable "calico_node_metrics_port" {
+  description = "Port calico-node (Felix) serves Prometheus metrics on, set as Installation spec.nodeMetricsPort. The host network is shared, so it must not clash with other host-network listeners. 0 disables metrics."
+  type        = number
+  default     = 9091
+}
+
+variable "calico_typha_metrics_port" {
+  description = "Port Typha serves Prometheus metrics on, set as Installation spec.typhaMetricsPort. 0 disables metrics."
+  type        = number
+  default     = 9093
+}
+
+variable "prometheus_operator_version" {
+  description = "prometheus-operator release (git tag, e.g. v0.90.1) whose ServiceMonitor and PodMonitor CRDs are added to the cluster's extraManifests, so workloads that ship monitors apply cleanly at bootstrap. Keep it in line with the prometheus-operator-crds chart in flux-platform-src's applications/prometheus-operator-crds (chart 28.0.1 = v0.90.1)."
+  type        = string
+  default     = "v0.90.1"
 }
 
 variable "pod_subnet" {
@@ -506,7 +524,7 @@ variable "gateway_classes" {
     GatewayClasses to provision, keyed by name, rendered into the operator's
     GatewayAPI resource (spec.gatewayClasses; see calico.tf). The tigera
     operator creates each GatewayClass itself, with a copy of the referenced
-    EnvoyProxy in the tigera-gateway namespace. envoy_proxy_ref is the base
+    EnvoyProxy in the calico-system namespace (Calico 3.33; earlier releases used tigera-gateway). envoy_proxy_ref is the base
     EnvoyProxy (see local.envoy_proxies in calico.tf); omit it to start from an
     empty one. gateway_kind is Deployment or DaemonSet.
   EOT
