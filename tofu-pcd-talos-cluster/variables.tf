@@ -170,7 +170,13 @@ variable "calico_bgp" {
     }))
   })
   default = {
-    as_number = 64514
+    # Unique per cluster: gateway 64512, controlplane 64513, observability
+    # 64514, xkc-lifecycle-test 64515 (flux-platform-src's
+    # crossplane.environment-config.kvm-network.yaml). Flux also manages this
+    # in clusters/core-infra/resources/calico.bgp-configuration.yaml, because
+    # Talos does not update a BGPConfiguration calico-node created first;
+    # change both together.
+    as_number = 64516
     service_load_balancer_ips = [
       "fd97:45c2:b3a1:f00::1:0/112",
       "2607:3640:1064:27f::1:0/112",

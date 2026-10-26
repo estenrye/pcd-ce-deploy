@@ -1,10 +1,17 @@
 # Calico manifests rendered from var.calico_* (modelled on the flux-rendered
-# controlplane cluster's operator.tigera.io Installation plus crd.projectcalico.org
+# controlplane cluster's operator.tigera.io Installation plus projectcalico.org/v3
 # BGPConfiguration, BGPPeer, IPPool and GlobalNetworkPolicy resources). They are
 # delivered as Talos inlineManifests on the control plane, next to the
 # tigera-operator manifest in extraManifests (talos.tf). Talos retries a manifest
 # that fails to apply, so the CRD-backed kinds settle once the operator has
 # installed its CRDs.
+#
+# These must be projectcalico.org/v3, not crd.projectcalico.org/v1: Calico 3.33
+# installs v3 as native CRDs and no longer creates the crd.projectcalico.org
+# group, so v1 objects never apply ("no matches for kind IPPool in version
+# crd.projectcalico.org/v1", retried by Talos forever). The visible symptom was
+# LoadBalancer Services stuck <pending> ("No ippools with allowedUse
+# LoadBalancer found") and so no Gateway address and no external-dns record.
 locals {
   # One source of truth for what Neutron port security and the security groups
   # must let through: the pod pools and the BGP-advertised VIP ranges.
@@ -66,7 +73,7 @@ locals {
   }
 
   calico_bgp_configuration = {
-    apiVersion = "crd.projectcalico.org/v1"
+    apiVersion = "projectcalico.org/v3"
     kind       = "BGPConfiguration"
     metadata   = { name = "default" }
     spec = {
@@ -78,7 +85,7 @@ locals {
   }
 
   calico_bgp_peers = [for peer in var.calico_bgp.peers : {
-    apiVersion = "crd.projectcalico.org/v1"
+    apiVersion = "projectcalico.org/v3"
     kind       = "BGPPeer"
     metadata   = { name = peer.name }
     spec = {
@@ -90,7 +97,7 @@ locals {
   # The operator only passes pool settings through to its own IPPool; the
   # explicit resource pins allowedUses, which the Installation can't express.
   calico_pod_ip_pools = [for p in var.calico_ip_pools : {
-    apiVersion = "crd.projectcalico.org/v1"
+    apiVersion = "projectcalico.org/v3"
     kind       = "IPPool"
     metadata   = { name = p.name }
     spec = {
@@ -105,7 +112,7 @@ locals {
   }]
 
   calico_lb_ip_pools = [for p in var.calico_load_balancer_pools : {
-    apiVersion = "crd.projectcalico.org/v1"
+    apiVersion = "projectcalico.org/v3"
     kind       = "IPPool"
     metadata   = { name = p.name }
     spec = {
@@ -117,7 +124,7 @@ locals {
   }]
 
   calico_default_deny_policy = [for _ in(var.calico_default_deny_policy.enabled ? [1] : []) : {
-    apiVersion = "crd.projectcalico.org/v1"
+    apiVersion = "projectcalico.org/v3"
     kind       = "GlobalNetworkPolicy"
     metadata   = { name = "deny-app-policy" }
     spec = {
