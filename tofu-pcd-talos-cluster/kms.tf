@@ -28,7 +28,11 @@ resource "pcd_keymanager_secret" "kms_key" {
 }
 
 locals {
-  kms_dir = "/var/lib/barbican-kms"
+  # Under /etc because EtcFileConfig (the Talos 1.14 replacement for the
+  # deprecated .machine.files) can only write there. Unlike machine.files it
+  # is applied live, so the files exist as soon as the config lands.
+  kms_etc_dir = "barbican-kms"
+  kms_dir     = "/etc/${local.kms_etc_dir}"
   # The plugin's socket directory is bind-mounted into kube-apiserver; the
   # plugin's credentials (cloud.conf) stay one level up, out of that mount.
   kms_socket_dir = "${local.kms_dir}/run"
@@ -38,28 +42,30 @@ locals {
   # each control-plane node). Empty-safe: only referenced when
   # var.create_kms_key is true.
   kms_controlplane_patches = !var.create_kms_key ? [] : [
-    yamlencode({
-      machine = {
-        files = [
-          {
-            # Holds the OCCM application credential; the dir above the
-            # apiserver-mounted socket dir.
-            path        = "${local.kms_dir}/cloud.conf"
-            op          = "create"
-            permissions = 420 # 0644: the plugin container reads it
-            content     = local.occm_cloud_conf
-          },
-          {
-            # Creates the socket dir so kube-apiserver's hostPath mount
-            # exists before the plugin pod does.
-            path        = "${local.kms_socket_dir}/.keep"
-            op          = "create"
-            permissions = 420
-            content     = ""
-          },
-        ]
-      }
-    }),
+    # Written as literal YAML, not yamlencode: EtcFileConfig.mode must be an
+    # unquoted octal (0o644), and yamlencode would quote it. jsonencode of a
+    # string is a valid YAML double-quoted scalar.
+    #
+    # Holds the OCCM application credential; the dir above the
+    # apiserver-mounted socket dir. 0644: the plugin container reads it.
+    <<-EOT
+    apiVersion: v1alpha1
+    kind: EtcFileConfig
+    name: ${local.kms_etc_dir}/cloud.conf
+    mode: 0o644
+    contents: ${jsonencode(local.occm_cloud_conf)}
+    EOT
+    ,
+    # Creates the socket dir so kube-apiserver's hostPath mount exists before
+    # the plugin pod does.
+    <<-EOT
+    apiVersion: v1alpha1
+    kind: EtcFileConfig
+    name: ${local.kms_etc_dir}/run/.keep
+    mode: 0o644
+    contents: ""
+    EOT
+    ,
     yamlencode({
       apiVersion = "v1alpha1"
       kind       = "KubeStaticPodConfig"
@@ -146,12 +152,13 @@ locals {
   ]
 }
 
-# Talos writes machine.files at boot only; a live config apply leaves them
-# off disk. The barbican-kms-plugin static pod then crash-loops on a missing
-# cloud.conf, and kube-apiserver (already pointed at the plugin's socket)
-# can't write Secrets. So the control-plane nodes need one reboot after the
-# KMS config lands -- the same reason terraform_data.reboot_controlplane
-# exists for first boot (see talos.tf).
+# Left over from when these files were machine.files, which Talos writes at
+# boot only: a live config apply left them off disk, the barbican-kms-plugin
+# static pod crash-looped on a missing cloud.conf, and kube-apiserver (already
+# pointed at the plugin's socket) couldn't write Secrets, so the control-plane
+# nodes needed one reboot after the KMS config landed. They are EtcFileConfig
+# documents now and are written live, so this reboot should no longer be
+# required; it is kept until a fresh build has been shown to work without it.
 #
 # One resource looping over the nodes, not one per node: a per-node resource
 # can't be ordered against its siblings, and rebooting all control planes at

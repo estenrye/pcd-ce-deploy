@@ -1,7 +1,7 @@
 # Spegel: a stateless cluster-local registry mirror that serves image layers
 # from node to node out of containerd's content store. It needs two things
 # outside the chart: containerd must keep unpacked layers (the
-# 20-customization.part file in common_machine, talos.tf), and nodes must
+# CRICustomizationConfig document in common_config_patches, talos.tf), and nodes must
 # allow 5001/tcp between members (cluster_internal_ingress, security_group.tf).
 #
 # Spegel only ships a Helm chart, so the chart is pre-rendered into

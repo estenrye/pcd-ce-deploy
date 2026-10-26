@@ -5,20 +5,6 @@ resource "talos_machine_secrets" "this" {
 locals {
   # Config shared by every node, control-plane and worker alike.
   common_machine = {
-    # Spegel (https://spegel.dev/docs/getting-started/#talos) serves
-    # image layers out of containerd's content store, which Talos
-    # discards after unpacking by default. Talos merges *.part files
-    # from /etc/cri/conf.d into its generated containerd CRI config.
-    files = [
-      {
-        path    = "/etc/cri/conf.d/20-customization.part"
-        op      = "create"
-        content = <<-EOT
-          [plugins."io.containerd.cri.v1.images"]
-            discard_unpacked_layers = false
-        EOT
-      }
-    ]
     # Stop SLAAC from adding a second global address (`...:f816:3eff:...`, derived
     # from the MAC) next to the DHCPv6-assigned one. The kernel prefers the SLAAC
     # address as the source of node-originated traffic, and the "all traffic from
@@ -58,6 +44,24 @@ locals {
   # replace what used to be common_machine.network.nameservers and
   # common_machine.kubelet, and cluster.network below. Common to every node.
   common_config_patches = [
+    # Spegel (https://spegel.dev/docs/getting-started/#talos) serves image
+    # layers out of containerd's content store, which Talos discards after
+    # unpacking by default. Talos merges these named TOML fragments into its
+    # generated containerd CRI config in name order. Supersedes
+    # `.machine.files` with a /etc/cri/conf.d/20-customization.part entry,
+    # which Talos 1.14 flags as deprecated. Applies live, no reboot. Spegel's
+    # registry mirror config goes to /etc/cri/conf.d/hosts (Talos's default
+    # config_path), set in the Spegel Helm values -- files/spegel-values.yaml
+    # here and applications/spegel/base/values.yaml in flux-platform-src.
+    yamlencode({
+      apiVersion = "v1alpha1"
+      kind       = "CRICustomizationConfig"
+      name       = "spegel"
+      content    = <<-EOT
+        [plugins."io.containerd.cri.v1.images"]
+          discard_unpacked_layers = false
+      EOT
+    }),
     # Supersedes `.machine.network.nameservers`. Without nameservers, Talos's
     # host DNS resolver falls back to (or merges in) its own hardcoded public
     # defaults -- confirmed live, 2026-09-16: console log showed it

@@ -107,21 +107,45 @@ locals {
 
 # Equivalent to:
 #   kubectl -n kube-system create secret generic cloud-config --from-file=cloud.conf=./cloud.conf
-resource "kubernetes_secret_v1" "cloud_config" {
-  metadata {
-    name      = "cloud-config"
-    namespace = "kube-system"
+#
+# Applied with kubectl rather than the hashicorp/kubernetes provider, which
+# hangs forever on this Secret: every read, import and create stalls, on
+# 2.38.0, 3.0.1 and 3.2.1, under both OpenTofu 1.12 and Terraform 1.5, while
+# kubectl and curl reach the same API in milliseconds. A goroutine dump
+# (2026-10-26) shows the provider CPU-bound inside log.Printf("... %#v", secret)
+# -> metav1.Time.GoString, before any request leaves the machine. Same shell-out
+# pattern as reboot_node_script (talos.tf); needs kubectl on the machine running
+# tofu. server-side apply makes it idempotent, so an existing cloud-config
+# Secret is simply taken over. There is no destroy step: the Secret goes with
+# the cluster.
+resource "terraform_data" "cloud_config" {
+  triggers_replace = {
+    cloud_conf = sha256(local.occm_cloud_conf)
+    endpoint   = local.cluster_endpoint
   }
 
-  data = {
-    "cloud.conf" = local.occm_cloud_conf
+  provisioner "local-exec" {
+    interpreter = ["/bin/bash", "-c"]
+    command     = <<-EOT
+      set -euo pipefail
+      command -v kubectl >/dev/null || { echo "kubectl not found in PATH" >&2; exit 1; }
+      dir=$(mktemp -d)
+      trap 'rm -rf "$dir"' EXIT
+      printf '%s' "$KUBECONFIG_CONTENT" > "$dir/kubeconfig"
+      printf '%s' "$CLOUD_CONF" > "$dir/cloud.conf"
+      kubectl --kubeconfig "$dir/kubeconfig" -n kube-system create secret generic cloud-config \
+          --from-file=cloud.conf="$dir/cloud.conf" --dry-run=client -o yaml \
+        | kubectl --kubeconfig "$dir/kubeconfig" apply --server-side --force-conflicts -f -
+    EOT
+    environment = {
+      KUBECONFIG_CONTENT = nonsensitive(talos_cluster_kubeconfig.this.kubeconfig_raw)
+      CLOUD_CONF         = nonsensitive(local.occm_cloud_conf)
+    }
   }
 
-  # Destroy runs in reverse dependency order, and deleting this Secret is a
-  # live API call through the VIP. So it must also depend on everything that
-  # keeps the API reachable (VIP port, security groups and their rules,
-  # port/SG associations, workers, KMS reboot), otherwise those are torn
-  # down first/in parallel and the delete times out.
+  # The apply is a live API call through the VIP, so it waits for everything
+  # that makes the API reachable (VIP port, security groups and their rules,
+  # port/SG associations, workers, KMS reboot).
   depends_on = [
     data.talos_cluster_health.this,
     talos_cluster_kubeconfig.this,
