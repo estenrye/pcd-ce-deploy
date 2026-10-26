@@ -114,8 +114,20 @@ resource "pcd_compute_instance" "controlplane" {
   count = var.controlplane_count
 
   name        = "${var.cluster_name}-controlplane-${count.index + 1}"
-  image_name  = pcd_images_image.talos.name
   flavor_name = pcd_compute_flavor.controlplane.name
+
+  # Root disk on Cinder, not the flavor's local ephemeral disk: etcd then
+  # lives on the PCD block-storage backend, and a resize only changes the
+  # flavor instead of copying the disk. The flavor's disk is the volume size.
+  block_device {
+    source_type           = "image"
+    uuid                  = pcd_images_image.talos.id
+    destination_type      = "volume"
+    boot_index            = 0
+    volume_size           = var.controlplane_flavor.disk
+    volume_type           = var.root_volume_type
+    delete_on_termination = true
+  }
 
   # No key_pair -- Talos has no SSH/shell, so there's nothing to inject a
   # key into. Management is entirely over apid (talosctl).
@@ -153,8 +165,18 @@ resource "pcd_compute_instance" "worker" {
   count = var.worker_count
 
   name        = "${var.cluster_name}-worker-${count.index + 1}"
-  image_name  = pcd_images_image.talos.name
   flavor_name = pcd_compute_flavor.worker.name
+
+  # See pcd_compute_instance.controlplane for why the root disk is a volume.
+  block_device {
+    source_type           = "image"
+    uuid                  = pcd_images_image.talos.id
+    destination_type      = "volume"
+    boot_index            = 0
+    volume_size           = var.worker_flavor.disk
+    volume_type           = var.root_volume_type
+    delete_on_termination = true
+  }
 
   network {
     port = pcd_networking_port.worker[count.index].id

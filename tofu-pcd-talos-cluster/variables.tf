@@ -345,7 +345,7 @@ variable "controlplane_count" {
 variable "worker_count" {
   description = "Number of dedicated worker nodes."
   type        = number
-  default     = 3
+  default     = 4
 
   validation {
     condition     = var.worker_count >= 0
@@ -378,15 +378,15 @@ variable "reboot_after_first_config" {
 }
 
 variable "controlplane_flavor" {
-  description = "Compute flavor for each control-plane node. 2 vCPU / 2GiB is Talos's documented controlplane floor; 4GiB here since 2GiB is known to be tight once etcd + the control-plane static pods + kubelet + CoreDNS are all resident."
+  description = "Compute flavor for each control-plane node. 2 vCPU / 2GiB is Talos's documented controlplane floor. 4 vCPU / 8GiB here: at 2 vCPU / 4GiB a node hit 91% memory with the apiserver (1-1.5GiB) and the per-node DaemonSets resident."
   type = object({
     vcpus = number
     ram   = number
     disk  = number
   })
   default = {
-    vcpus = 2
-    ram   = 4096
+    vcpus = 4
+    ram   = 8192
     disk  = 20
   }
 }
@@ -400,9 +400,15 @@ variable "worker_flavor" {
   })
   default = {
     vcpus = 4
-    ram   = 8192
+    ram   = 16384
     disk  = 20
   }
+}
+
+variable "root_volume_type" {
+  description = "Cinder volume type for each node's root disk. volume_storage is the truenas-nfs-nova backend; the other types (image_library, __DEFAULT__) can be scheduled onto the Glance backend."
+  type        = string
+  default     = "volume_storage"
 }
 
 # --- Barbican KMS key ---
@@ -454,7 +460,10 @@ variable "cinder_storage_classes" {
     The defaults match the upstream cinder-csi-plugin chart (a Delete and a
     Retain class, no parameters), except that the Delete class is the default. At most one
     class should set is_default. parameters are passed straight to the driver
-    (e.g. type = "<cinder volume type>", availability = "<az>").
+    (e.g. type = "<cinder volume type>", availability = "<az>"). Both defaults
+    pin type = volume_storage: with no type, Cinder uses __DEFAULT__, which
+    has no backend and was scheduling PVCs onto the Glance backend
+    (truenas-nfs-glance).
   EOT
   type = map(object({
     reclaim_policy         = string
@@ -464,8 +473,8 @@ variable "cinder_storage_classes" {
     parameters             = optional(map(string), {})
   }))
   default = {
-    "csi-cinder-sc-delete" = { reclaim_policy = "Delete", is_default = true }
-    "csi-cinder-sc-retain" = { reclaim_policy = "Retain" }
+    "csi-cinder-sc-delete" = { reclaim_policy = "Delete", is_default = true, parameters = { type = "volume_storage" } }
+    "csi-cinder-sc-retain" = { reclaim_policy = "Retain", parameters = { type = "volume_storage" } }
   }
 
   validation {

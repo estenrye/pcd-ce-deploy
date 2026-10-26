@@ -1,8 +1,14 @@
 resource "pcd_compute_flavor" "controlplane" {
-  name  = "${var.cluster_name}-controlplane"
+  # Flavors are immutable in Nova, so the size is part of the name -- see the
+  # worker flavor below.
+  name  = "${var.cluster_name}-controlplane-${var.controlplane_flavor.vcpus}c-${var.controlplane_flavor.ram}m"
   vcpus = var.controlplane_flavor.vcpus
   ram   = var.controlplane_flavor.ram
   disk  = var.controlplane_flavor.disk
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "pcd_compute_flavor" "worker" {
