@@ -255,6 +255,12 @@ variable "https_allowed_prefixes" {
   default     = ["::/0"]
 }
 
+variable "minecraft_allowed_prefixes" {
+  description = "IPv6 prefixes allowed to reach 25565/tcp on the nodes (the minecraft game-gateway VIP). Security-group rules can't match on destination IP, so this applies to every VIP pool at once. Defaults to ::/0, matching the 80/tcp rule."
+  type        = list(string)
+  default     = ["::/0"]
+}
+
 variable "cluster_name" {
   description = "Talos/Kubernetes cluster name."
   type        = string

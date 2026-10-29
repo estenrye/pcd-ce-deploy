@@ -124,6 +124,33 @@ resource "pcd_networking_secgroup_rule" "https_ingress" {
   remote_ip_prefix  = each.value
 }
 
+# Minecraft Java Edition (25565/tcp) for the game-gateway Gateways that the
+# minecraft apps (flux-platform-src applications/minecraft) expose through a
+# TCPRoute. Same mechanics as the HTTPS group above: kube-proxy DNATs the
+# Gateway's LoadBalancer VIP to the Envoy pod on the node, so the packet reaches
+# the node's port as 25565/tcp and is filtered here first. Rules can't match on
+# destination IP, so this covers every VIP pool at once. Confirmed live
+# 2026-10-29: the Envoy pod answered a Minecraft status ping via port-forward,
+# while a connect to the public VIP on 25565 timed out (443 to a sibling VIP
+# worked). Own group so game exposure can be detached independently.
+resource "pcd_networking_secgroup" "minecraft" {
+  name        = "${var.cluster_name}-minecraft"
+  description = "Inbound Minecraft (25565/tcp) to the ${var.cluster_name} cluster"
+}
+
+resource "pcd_networking_secgroup_rule" "minecraft_ingress" {
+  for_each = toset(var.minecraft_allowed_prefixes)
+
+  security_group_id = pcd_networking_secgroup.minecraft.id
+  description       = "Allow Minecraft (25565/tcp) from ${each.value}"
+  direction         = "ingress"
+  ethertype         = "IPv6"
+  protocol          = "tcp"
+  port_range_min    = 25565
+  port_range_max    = 25565
+  remote_ip_prefix  = each.value
+}
+
 # With more than one node, everything the CNI, Spegel (5001/tcp), and
 # Kubernetes need between nodes -- BGP mesh sessions, overlay tunnels,
 # health checks, pod-to-pod traffic -- has to be allowed member-to-member.
