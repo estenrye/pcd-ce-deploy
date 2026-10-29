@@ -60,6 +60,7 @@ resource "pcd_networking_port_secgroup_associate" "controlplane" {
     pcd_networking_secgroup.talos.id,
     pcd_networking_secgroup.http.id,
     pcd_networking_secgroup.https.id,
+    pcd_networking_secgroup.minecraft.id,
     data.pcd_networking_secgroup.bgp.id,
   ]
 }
@@ -95,6 +96,7 @@ resource "pcd_networking_port_secgroup_associate" "worker" {
     pcd_networking_secgroup.talos.id,
     pcd_networking_secgroup.http.id,
     pcd_networking_secgroup.https.id,
+    pcd_networking_secgroup.minecraft.id,
     data.pcd_networking_secgroup.bgp.id,
   ]
 }
