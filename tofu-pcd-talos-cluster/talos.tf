@@ -205,6 +205,24 @@ data "talos_machine_configuration" "controlplane" {
         }]
       }
     }),
+    # Serve etcd's Prometheus metrics. Talos does not enable the listener by
+    # default (etcd listens only on :2379/:2380), so nothing answers on 2381.
+    # IPv4 loopback only: it is not reachable from the network, the
+    # host-network otelcol-ds collector on each control-plane node scrapes it at
+    # 127.0.0.1:2381 (applications/opentelemetry-collector-daemonset in
+    # flux-platform-src), and the scheduler and controller-manager already use
+    # IPv4 loopback here. IPv4 and IPv6 loopback are separate sockets, so if this
+    # moves to [::1] the collector's etcd scrape job has to move with it.
+    # Control plane only: workers have no etcd.
+    yamlencode({
+      cluster = {
+        etcd = {
+          extraArgs = {
+            "listen-metrics-urls" = "http://127.0.0.1:2381"
+          }
+        }
+      }
+    }),
     yamlencode({
       machine = merge(local.common_machine, {
         network = {
