@@ -103,6 +103,35 @@ locals {
       apiVersion = "v1alpha1"
       kind       = "KubeNetworkConfig"
     }, local.common_cluster_network)),
+    # kube-proxy's clusterCIDR defaults to podSubnets (var.pod_subnet, the
+    # "internal overlay" range), but pods actually get their addresses from the
+    # Calico pools (var.calico_ip_pools). With the default, kube-proxy sees every
+    # real pod as an outside client and masquerades its Service (ClusterIP)
+    # traffic to the sending node's address, so a cross-node connection reaches
+    # the backend from a node IP and NetworkPolicy rules that match the sending
+    # pod (podSelector/namespaceSelector) never match. Confirmed live 2026-10-31:
+    # a server on one node logged the client's node IP for a Service call and the
+    # client's pod IP for a direct pod call; seaweedfs-db-rw and seaweedfs-s3 were
+    # unreachable across nodes under pod-label ingress policies.
+    #
+    # Setting clusterCIDR here overrides the derived value (Talos fills it in only
+    # when unset, internal/.../control_plane.go manageProxyConfigArgs) without
+    # touching podSubnets or kube-controller-manager. Talos renders it into a
+    # checksum-named kube-proxy ConfigMap, creates that on apply, but never updates
+    # the existing DaemonSet (its manifest sync is create-once), so after applying,
+    # repoint the DaemonSet's `config` volume at the new ConfigMap. Do NOT use
+    # `talosctl upgrade-k8s` for this: it syncs every bootstrap manifest and
+    # reverts in-cluster changes to the Calico Installation, Spegel, and
+    # cinder-csi manifests (dry run 2026-10-31 showed 32 hunks).
+    #
+    # kube-proxy takes at most one CIDR per IP family.
+    yamlencode({
+      apiVersion = "v1alpha1"
+      kind       = "KubeProxyConfig"
+      config = {
+        clusterCIDR = join(",", local.pod_pool_cidrs)
+      }
+    }),
     # Still a plain (unmigrated) v1alpha1 field, not a separate document.
     # Sets kubelet's --cloud-provider=external on every node, for
     # openstack-cloud-controller-manager (see

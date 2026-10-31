@@ -305,13 +305,19 @@ variable "prometheus_operator_version" {
 
 variable "pod_subnet" {
   description = <<-EOT
-    IPv6 CIDR for the in-cluster pod overlay network. Must be IPv6 -- see
-    talos.tf's cluster.network config patch for why: kube-apiserver
-    refuses to start at all if the service subnet's address family
-    doesn't match the node's own (confirmed live, 2026-09-17). Any
-    private range works since this is purely an internal overlay; a ULA
-    prefix distinct from the bgp-net subnet is used here just to keep node
-    addressing and pod addressing visually unambiguous.
+    IPv6 CIDR Kubernetes carves per-node podCIDRs from (kube-controller-manager's
+    --cluster-cidr). Must be IPv6 -- see talos.tf's cluster.network config
+    patch for why: kube-apiserver refuses to start at all if the service
+    subnet's address family doesn't match the node's own (confirmed live,
+    2026-09-17). Any private range works for that purpose; a ULA prefix
+    distinct from the bgp-net subnet is used here just to keep node addressing
+    and pod addressing visually unambiguous.
+
+    This is NOT where pods get their addresses (the Calico pools in
+    var.calico_ip_pools are), and it is NOT what kube-proxy treats as the pod
+    range: Talos defaults kube-proxy's clusterCIDR to this value, which would make
+    kube-proxy masquerade real pod traffic, so talos.tf overrides it with the
+    Calico pools via KubeProxyConfig.
   EOT
   type        = string
   default     = "fd10:244::/56"
