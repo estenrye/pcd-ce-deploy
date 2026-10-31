@@ -535,9 +535,11 @@ variable "cinder_volume_snapshot_classes" {
 
     type = "backup" does not work here: there is no cinder-backup service, so a
     test backup went to "error" with fail_reason "Service not found for creating
-    backup." (2026-10-31). Deleting a snapshot of a volume that is still attached
-    went to "error_deleting" on this TrueNAS NFS backend; the same delete
-    succeeded once the volume was detached.
+    backup." (2026-10-31). That failed backup also left a snapshot stuck in
+    "backing-up" and a later snapshot delete in "error_deleting"; a controlled
+    retest on idle 1Gi volumes deleted snapshots fine whether the volume was
+    attached or detached, so attachment is not what breaks deletes. Large or busy
+    volumes were not tested.
   EOT
   type = map(object({
     deletion_policy = string
