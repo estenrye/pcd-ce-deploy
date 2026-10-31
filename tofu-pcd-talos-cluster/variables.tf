@@ -525,6 +525,19 @@ variable "cinder_volume_snapshot_classes" {
     parameters go to the driver, e.g. force-create = "true" to snapshot a
     volume that is attached, or type = "backup" for Cinder backups instead of
     snapshots.
+
+    The first two classes have no parameters, so Cinder refuses to snapshot any
+    volume that is attached ("Volume ... status must be available, but current
+    status is: in-use"; confirmed live 2026-10-31). The *-inuse classes set
+    force-create so they can snapshot volumes in use, which is every volume a
+    running pod mounts. Use Retain for data that must outlive its VolumeSnapshot
+    object (e.g. SeaweedFS audit data) and Delete for drills.
+
+    type = "backup" does not work here: there is no cinder-backup service, so a
+    test backup went to "error" with fail_reason "Service not found for creating
+    backup." (2026-10-31). Deleting a snapshot of a volume that is still attached
+    went to "error_deleting" on this TrueNAS NFS backend; the same delete
+    succeeded once the volume was detached.
   EOT
   type = map(object({
     deletion_policy = string
@@ -532,8 +545,10 @@ variable "cinder_volume_snapshot_classes" {
     parameters      = optional(map(string), {})
   }))
   default = {
-    "csi-cinder-snapclass-delete" = { deletion_policy = "Delete", is_default = true }
-    "csi-cinder-snapclass-retain" = { deletion_policy = "Retain" }
+    "csi-cinder-snapclass-delete"       = { deletion_policy = "Delete", is_default = true }
+    "csi-cinder-snapclass-retain"       = { deletion_policy = "Retain" }
+    "csi-cinder-snapclass-delete-inuse" = { deletion_policy = "Delete", parameters = { "force-create" = "true" } }
+    "csi-cinder-snapclass-retain-inuse" = { deletion_policy = "Retain", parameters = { "force-create" = "true" } }
   }
 
   validation {
