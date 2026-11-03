@@ -17,3 +17,5 @@ pcd_project_domain_id        = "default"
 # here only if this needs to change.
 
 create_kms_key = true
+# Dedicated workers (variables.tf default is 4).
+worker_count = 5

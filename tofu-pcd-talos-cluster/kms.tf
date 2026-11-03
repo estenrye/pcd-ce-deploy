@@ -110,6 +110,18 @@ locals {
       cluster = {
         apiServer = {
           certSANs = [local.cluster_vip]
+          # ServiceAccount tokens are issued for the in-cluster API name, so
+          # workloads can federate (e.g. SeaweedFS STS web-identity in
+          # flux-platform-src) against https://kubernetes.default.svc.cluster.local
+          # without depending on a node address. The first issuer signs new
+          # tokens; the second (Talos's default, the cluster endpoint) is kept
+          # so tokens already issued stay valid until they expire. jwks-uri
+          # makes the discovery document point at the same in-cluster name.
+          # Requires the apiserver to restart (rolling, control plane only).
+          extraArgs = {
+            "service-account-issuer"   = ["https://kubernetes.default.svc.cluster.local", local.cluster_endpoint]
+            "service-account-jwks-uri" = "https://kubernetes.default.svc.cluster.local/openid/v1/jwks"
+          }
           extraVolumes = [{
             hostPath  = local.kms_socket_dir
             mountPath = "/var/lib/kms"
