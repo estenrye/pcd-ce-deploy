@@ -617,3 +617,77 @@ variable "spegel_version" {
   type        = string
   default     = "0.8.0"
 }
+
+# --- API server JWT authentication (AuthenticationConfiguration) ---
+
+variable "enable_oidc_auth" {
+  description = "Configure the API server to authenticate JWTs from var.oidc_issuers (AuthenticationConfiguration via KubeAuthenticationConfig). Rolls the control plane. See oidc.tf for what is unverified."
+  type        = bool
+  default     = false
+}
+
+variable "oidc_issuers" {
+  description = <<-EOT
+    JWT issuers the API server trusts (up to 64; urls must be unique). Per
+    issuer: audiences; the username and groups mappings, each either a claim
+    (+ prefix) or a CEL expression; optional CEL claim_validation_rules and
+    extra user_validation_rules. discovery_url / certificate_authority are only
+    needed when the issuer's discovery document is not at <url>/.well-known/
+    openid-configuration or uses a private CA. Control plane nodes must reach
+    each url. The default is the Keycloak realm used by kubectl oidc-login.
+    Add a second entry for CI (for example GitHub Actions OIDC, or Keycloak
+    service-account tokens, which have no email claim, so map the username from
+    a different claim or expression).
+  EOT
+  type = list(object({
+    name                  = string
+    url                   = string
+    audiences             = list(string)
+    discovery_url         = optional(string)
+    certificate_authority = optional(string)
+    username = optional(object({
+      claim      = optional(string)
+      prefix     = optional(string, "")
+      expression = optional(string)
+    }), { claim = "email", prefix = "" })
+    groups = optional(object({
+      claim      = optional(string)
+      prefix     = optional(string, "")
+      expression = optional(string)
+    }), { claim = "groups", prefix = "" })
+    claim_validation_rules = optional(list(object({
+      expression = string
+      message    = string
+    })), [])
+    user_validation_rules = optional(list(object({
+      expression = string
+      message    = string
+    })), [])
+  }))
+  default = [{
+    name      = "keycloak"
+    url       = "https://id.rye.ninja/realms/ryezone-labs"
+    audiences = ["kubernetes"]
+    claim_validation_rules = [{
+      expression = "claims.email_verified == true"
+      message    = "the email must be verified by Keycloak"
+    }]
+  }]
+
+  validation {
+    condition     = length(distinct([for i in var.oidc_issuers : i.url])) == length(var.oidc_issuers)
+    error_message = "oidc_issuers urls must be unique."
+  }
+  validation {
+    condition     = length(var.oidc_issuers) <= 64
+    error_message = "Kubernetes allows at most 64 JWT authenticators."
+  }
+  validation {
+    condition = alltrue([
+      for i in var.oidc_issuers :
+      (i.username.claim != null) != (i.username.expression != null) &&
+      (i.groups.claim != null) != (i.groups.expression != null)
+    ])
+    error_message = "Each issuer's username and groups mapping must set exactly one of claim or expression."
+  }
+}

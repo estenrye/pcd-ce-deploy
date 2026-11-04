@@ -17,5 +17,9 @@ pcd_project_domain_id        = "default"
 # here only if this needs to change.
 
 create_kms_key = true
+
+# API server JWT authentication against Keycloak (oidc.tf, issuers in
+# variables.tf; flux-platform-src ADR 30). Rolled out 2026-11-04.
+enable_oidc_auth = true
 # Dedicated workers (variables.tf default is 4).
 worker_count = 5

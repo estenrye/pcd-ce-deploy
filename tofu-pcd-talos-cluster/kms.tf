@@ -33,9 +33,28 @@ locals {
   # is applied live, so the files exist as soon as the config lands.
   kms_etc_dir = "barbican-kms"
   kms_dir     = "/etc/${local.kms_etc_dir}"
-  # The plugin's socket directory is bind-mounted into kube-apiserver; the
-  # plugin's credentials (cloud.conf) stay one level up, out of that mount.
-  kms_socket_dir = "${local.kms_dir}/run"
+  # The plugin's socket directory. It sits inside /var/log/audit/kube, which
+  # Talos already mounts read-write into kube-apiserver at the same path, so no
+  # extra volume is needed. That matters: the new-style KubeAPIServerConfig
+  # document has no extraVolumes, and only it makes Talos pass
+  # --authentication-config (see oidc.tf). The plugin's credentials
+  # (cloud.conf) stay in /etc, outside anything kube-apiserver mounts.
+  kms_socket_dir = "/var/log/audit/kube/kms"
+  kms_endpoint   = "unix://${local.kms_socket_dir}/kms.sock"
+
+  # ServiceAccount tokens are issued for the in-cluster API name, so
+  # workloads can federate (e.g. SeaweedFS STS web-identity in
+  # flux-platform-src) against https://kubernetes.default.svc.cluster.local
+  # without depending on a node address. The first issuer signs new tokens;
+  # the second (Talos's default, the cluster endpoint) is kept so tokens
+  # already issued stay valid until they expire. jwks-uri makes the discovery
+  # document point at the same in-cluster name. Requires the apiserver to
+  # restart (rolling, control plane only). Carried over unchanged from the
+  # legacy .cluster.apiServer block this replaced.
+  kms_apiserver_extra_args = {
+    "service-account-issuer"   = ["https://kubernetes.default.svc.cluster.local", local.cluster_endpoint]
+    "service-account-jwks-uri" = "https://kubernetes.default.svc.cluster.local/openid/v1/jwks"
+  }
 
   # Control-plane-only Talos patches that make kube-apiserver encrypt Secrets
   # through the Barbican key via KMS v2 (barbican-kms-plugin, a static pod on
@@ -46,24 +65,13 @@ locals {
     # unquoted octal (0o644), and yamlencode would quote it. jsonencode of a
     # string is a valid YAML double-quoted scalar.
     #
-    # Holds the OCCM application credential; the dir above the
-    # apiserver-mounted socket dir. 0644: the plugin container reads it.
+    # Holds the OCCM application credential. 0644: the plugin container reads it.
     <<-EOT
     apiVersion: v1alpha1
     kind: EtcFileConfig
     name: ${local.kms_etc_dir}/cloud.conf
     mode: 0o644
     contents: ${jsonencode(local.occm_cloud_conf)}
-    EOT
-    ,
-    # Creates the socket dir so kube-apiserver's hostPath mount exists before
-    # the plugin pod does.
-    <<-EOT
-    apiVersion: v1alpha1
-    kind: EtcFileConfig
-    name: ${local.kms_etc_dir}/run/.keep
-    mode: 0o644
-    contents: ""
     EOT
     ,
     yamlencode({
@@ -88,44 +96,19 @@ locals {
             # permission on the socket to connect.
             command = [
               "sh", "-c",
-              "umask 000 && exec /bin/barbican-kms-plugin --socketpath=/kms/run/kms.sock --cloud-config=/kms/cloud.conf",
+              "umask 000 && exec /bin/barbican-kms-plugin --socketpath=/kms-run/kms.sock --cloud-config=/kms-config/cloud.conf",
             ]
-            volumeMounts = [{ name = "kms", mountPath = "/kms" }]
+            volumeMounts = [
+              { name = "kms-config", mountPath = "/kms-config", readOnly = true },
+              { name = "kms-run", mountPath = "/kms-run" },
+            ]
           }]
-          volumes = [{
-            name     = "kms"
-            hostPath = { path = local.kms_dir }
-          }]
-        }
-      }
-    }),
-    # Replaces the KubeAPIServerConfig document (see talos.tf) so that the
-    # legacy .cluster.apiServer, which can take extraVolumes, is usable.
-    yamlencode({
-      apiVersion = "v1alpha1"
-      kind       = "KubeAPIServerConfig"
-      "$patch"   = "delete"
-    }),
-    yamlencode({
-      cluster = {
-        apiServer = {
-          certSANs = [local.cluster_vip]
-          # ServiceAccount tokens are issued for the in-cluster API name, so
-          # workloads can federate (e.g. SeaweedFS STS web-identity in
-          # flux-platform-src) against https://kubernetes.default.svc.cluster.local
-          # without depending on a node address. The first issuer signs new
-          # tokens; the second (Talos's default, the cluster endpoint) is kept
-          # so tokens already issued stay valid until they expire. jwks-uri
-          # makes the discovery document point at the same in-cluster name.
-          # Requires the apiserver to restart (rolling, control plane only).
-          extraArgs = {
-            "service-account-issuer"   = ["https://kubernetes.default.svc.cluster.local", local.cluster_endpoint]
-            "service-account-jwks-uri" = "https://kubernetes.default.svc.cluster.local/openid/v1/jwks"
-          }
-          extraVolumes = [{
-            hostPath  = local.kms_socket_dir
-            mountPath = "/var/lib/kms"
-          }]
+          volumes = [
+            { name = "kms-config", hostPath = { path = local.kms_dir } },
+            # Created by the kubelet if missing, so it exists before
+            # kube-apiserver needs the socket.
+            { name = "kms-run", hostPath = { path = local.kms_socket_dir, type = "DirectoryOrCreate" } },
+          ]
         }
       }
     }),
@@ -149,7 +132,7 @@ locals {
             { kms = {
               apiVersion = "v2"
               name       = "barbican"
-              endpoint   = "unix:///var/lib/kms/kms.sock"
+              endpoint   = local.kms_endpoint
               timeout    = "3s"
             } },
             { secretbox = { keys = [{
