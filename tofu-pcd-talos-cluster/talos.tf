@@ -294,17 +294,23 @@ data "talos_machine_configuration" "controlplane" {
     # see its definition in variables.tf for what flipping it to true would
     # need.
     #
-    # With the Barbican KMS key on, this document can't be used: it has no
-    # extraVolumes, and the legacy .cluster.apiServer needed for the KMS
-    # socket mount hard-conflicts with it. kms.tf deletes the document and
-    # sets the same SAN through the legacy field instead.
-    ], var.create_kms_key ? local.kms_controlplane_patches : [
-    yamlencode({
+    # Always the new-style document, with or without the KMS key: it is the
+    # only form for which Talos passes --authentication-config (oidc.tf). The
+    # KMS socket needs no extraVolumes (see kms.tf), so nothing requires the
+    # legacy .cluster.apiServer any more.
+    # (Two yamlencode branches: the extraArgs value types differ, so a single
+    # conditional object would not type-check.)
+    var.create_kms_key ? yamlencode({
+      apiVersion    = "v1alpha1"
+      kind          = "KubeAPIServerConfig"
+      certExtraSANs = [local.cluster_vip]
+      extraArgs     = local.kms_apiserver_extra_args
+      }) : yamlencode({
       apiVersion    = "v1alpha1"
       kind          = "KubeAPIServerConfig"
       certExtraSANs = [local.cluster_vip]
     }),
-  ])
+  ], local.kms_controlplane_patches, local.oidc_controlplane_patches)
 }
 
 data "talos_machine_configuration" "worker" {
