@@ -3,6 +3,14 @@ resource "truenas_service" "nfs" {
   enable  = true
 }
 
+# Restrict the NFS server to listening on the storage-network addresses
+# rather than every interface (including the management one).
+resource "truenas_nfs_config" "this" {
+  bindip = var.nfs_bind_ips
+
+  depends_on = [truenas_service.nfs]
+}
+
 # maproot_user/group = root: PCD's Cinder and Glance services write to these
 # exports as root inside their own containers. Without root-squash mapped
 # away, NFS's default root-squash would leave them unable to create/chown

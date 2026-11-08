@@ -31,8 +31,8 @@ since PCD's Cinder/Glance services write to these mounts as root.
   mount, which is **not** assumed to be the same as `truenas_url`'s
   management/API endpoint. On this NAS the two are on separate interfaces;
   see `truenas_nfs_host` below.
-- A vault containing an **API Credential** item whose `credential` field
-  holds that API key (read directly — no extra field mapping needed).
+- A vault containing an **API Credential** item whose `api_token` field
+  holds that API key (found by field label across the item's sections).
 - The 1Password 8 desktop app, running and unlocked, with **Settings →
   Developer → "Integrate with 1Password CLI"** enabled. Auth to 1Password
   goes through the desktop app's biometric/system unlock rather than a

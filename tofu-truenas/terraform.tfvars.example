@@ -5,7 +5,7 @@
 onepassword_account = "ryefamily.1password.com"
 
 truenas_url      = "https://nas.rye.ninja"      # management/API endpoint
-truenas_nfs_host = "10.45.60.254"               # storage-network address NFS clients mount
+truenas_nfs_host = "10.45.0.2"               # storage-network address NFS clients mount
 
 # Uncomment to override the defaults in variables.tf:
 # truenas_username       = "admin"

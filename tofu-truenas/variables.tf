@@ -29,7 +29,17 @@ variable "truenas_nfs_host" {
     the cinder_nfs_export/glance_nfs_export outputs.
   EOT
   type        = string
-  default     = "10.45.60.254"
+  default     = "10.45.0.2"
+}
+
+variable "nfs_bind_ips" {
+  description = <<-EOT
+    Addresses the NFS service binds to (TrueNAS nfs.config bindip). These
+    must already be assigned to an interface on the NAS. An empty list
+    means all addresses.
+  EOT
+  type        = list(string)
+  default     = ["10.45.0.2", "fd97:45c2:b3a1:100::1000"]
 }
 
 variable "truenas_username" {
@@ -40,25 +50,85 @@ variable "truenas_username" {
     account a given key belongs to.
   EOT
   type        = string
-  default     = "admin"
+  default     = "truenas_admin"
 }
 
 variable "onepassword_vault" {
   description = "1Password vault UUID (or name) holding the TrueNAS API key."
   type        = string
-  default     = "controlplane"
+  default     = "Home_Lab"
 }
 
 variable "onepassword_item_title" {
-  description = "Title of the 1Password 'API Credential' item whose `credential` field holds the TrueNAS API key."
+  description = "Title of the 1Password 'API Credential' item whose `api_token` field holds the TrueNAS API key."
   type        = string
-  default     = "truenas-api-key"
+  default     = "nas.rye.ninja"
+}
+
+variable "cloudflare_onepassword_vault" {
+  description = "1Password vault UUID (or name) holding the Cloudflare API token used by the ACME DNS authenticator."
+  type        = string
+  default     = "core-infra"
+}
+
+variable "cloudflare_onepassword_item_title" {
+  description = "Title of the 1Password item whose `credential` field holds the Cloudflare API token."
+  type        = string
+  default     = "cloudflare-api-token"
+}
+
+variable "ui_ipv4_addresses" {
+  description = "IPv4 addresses the TrueNAS web interface listens on (system.general ui_address)."
+  type        = list(string)
+  default     = ["10.45.0.2"]
+}
+
+variable "ui_ipv6_addresses" {
+  description = "IPv6 addresses the TrueNAS web interface listens on (system.general ui_v6address)."
+  type        = list(string)
+  default     = ["fd97:45c2:b3a1:100::1000"]
+}
+
+variable "truenas_timezone" {
+  description = "System timezone (IANA name). America/Chicago is US Central time."
+  type        = string
+  default     = "America/Chicago"
 }
 
 variable "pool_name" {
   description = "ZFS pool the datasets are created in."
   type        = string
   default     = "flash-pool"
+}
+
+variable "apps_pool" {
+  description = "ZFS pool that holds TrueNAS Applications (Docker) data."
+  type        = string
+  default     = "flash-pool"
+}
+
+variable "docker_onepassword_vault" {
+  description = "1Password vault UUID (or name) holding the Docker Hub registry credentials."
+  type        = string
+  default     = "github-actions-docker-multiarch-slsa-releaser"
+}
+
+variable "docker_onepassword_item_title" {
+  description = "Title of the 1Password login item whose `username` and `password` fields hold the Docker Hub credentials."
+  type        = string
+  default     = "docker-io-registry-pat-github-actions"
+}
+
+variable "docker_registry_name" {
+  description = "Name of the registry credential entry in TrueNAS Apps."
+  type        = string
+  default     = "docker.io"
+}
+
+variable "docker_registry_uri" {
+  description = "Registry URI the credentials apply to."
+  type        = string
+  default     = "https://index.docker.io/v1/"
 }
 
 variable "nova_dataset_name" {
