@@ -40,3 +40,19 @@ resource "truenas_share_nfs" "glance" {
 
   depends_on = [truenas_service.nfs]
 }
+
+# esten's files (existing dataset, owned by esten). mapall_user/group squash
+# every client user to esten, so whoever mounts it reads and writes as esten
+# regardless of the UID on the client.
+resource "truenas_share_nfs" "files_esten" {
+  path    = "/mnt/${var.pool_name}/files-esten"
+  comment = "esten files"
+  enabled = true
+
+  networks = concat(var.nfs_allowed_networks, var.files_esten_nfs_extra_networks)
+
+  mapall_user  = truenas_user.esten.username
+  mapall_group = truenas_user.esten.username
+
+  depends_on = [truenas_service.nfs]
+}

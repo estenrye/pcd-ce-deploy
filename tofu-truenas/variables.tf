@@ -131,6 +131,59 @@ variable "docker_registry_uri" {
   default     = "https://index.docker.io/v1/"
 }
 
+variable "smb_bind_ips" {
+  description = "Addresses the SMB service binds to (smb.config bindip). Must already be assigned to an interface on the NAS."
+  type        = list(string)
+  default     = ["10.45.0.6", "fd97:45c2:b3a1:100::1004"]
+}
+
+variable "smb_onepassword_vault" {
+  description = "1Password vault UUID (or name) holding the SMB user logins."
+  type        = string
+  default     = "nas.rye.ninja"
+}
+
+variable "smb_hp_scan_item_title" {
+  description = "Title of the 1Password login item for the hp-scan SMB user (`username` and `password` fields)."
+  type        = string
+  default     = "SMB User - hp-scan"
+}
+
+variable "smb_esten_item_title" {
+  description = "Title of the 1Password login item for the esten SMB user (`username` and `password` fields)."
+  type        = string
+  default     = "SMB User - esten"
+}
+
+variable "smb_users_group_id" {
+  description = <<-EOT
+    TrueNAS database ID (not GID) of the builtin_users group (GID 545).
+    TrueNAS adds every SMB user to it automatically, so it has to be listed
+    explicitly or the provider sees an unplanned membership. The ID is
+    assigned per system; look it up under Credentials > Local Groups or via
+    GET /api/v2.0/group?group=builtin_users.
+  EOT
+  type        = number
+  default     = 91
+}
+
+variable "printer_host" {
+  description = "Address of the HP MFP's embedded web server, used to configure Scan to Network Folder."
+  type        = string
+  default     = "10.0.2.15"
+}
+
+variable "files_esten_nfs_extra_networks" {
+  description = <<-EOT
+    CIDRs allowed to mount the files-esten NFS export in addition to
+    nfs_allowed_networks. Every client of that export acts as esten, so keep
+    this list tight. Kept separate so the PCD Nova and Glance exports, which
+    share nfs_allowed_networks, are not widened.
+  EOT
+  type        = list(string)
+  default     = ["fd97:45c2:b3a1:101::/64"]
+}
+
 variable "nova_dataset_name" {
   description = "Name of the dataset backing the PCD Nova (block storage) NFS backend."
   type        = string
