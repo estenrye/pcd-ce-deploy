@@ -11,7 +11,7 @@
 # 22/80/443 from the ULA range by the Neutron security groups.
 #
 # Secrets come from 1Password at run time (never written to this repo):
-#   Platform9/healthchecks-secret-key, healthchecks-admin,
+#   Platform9/healthchecks-secret-key, Home_Lab/healthchecks-admin,
 #   healthchecks-discord-webhook;  core-infra/cloudflare-api-token (Caddy's
 #   ACME DNS challenge for healthchecks.rye.ninja).
 #
@@ -33,8 +33,8 @@
     op_account: ryefamily.1password.com
 
     hc_secret_key: "{{ lookup('ansible.builtin.pipe', 'op read op://Platform9/healthchecks-secret-key/credential --account ' ~ op_account) }}"
-    hc_admin_email: "{{ lookup('ansible.builtin.pipe', 'op read op://Platform9/healthchecks-admin/username --account ' ~ op_account) }}"
-    hc_admin_password: "{{ lookup('ansible.builtin.pipe', 'op read op://Platform9/healthchecks-admin/password --account ' ~ op_account) }}"
+    hc_admin_email: "{{ lookup('ansible.builtin.pipe', 'op read op://Home_Lab/healthchecks-admin/username --account ' ~ op_account) }}"
+    hc_admin_password: "{{ lookup('ansible.builtin.pipe', 'op read op://Home_Lab/healthchecks-admin/password --account ' ~ op_account) }}"
     hc_discord_webhook: "{{ lookup('ansible.builtin.pipe', 'op read op://Platform9/healthchecks-discord-webhook/credential --account ' ~ op_account) }}"
     hc_cf_token: "{{ lookup('ansible.builtin.pipe', 'op read op://core-infra/cloudflare-api-token/credential --account ' ~ op_account) }}"
 
