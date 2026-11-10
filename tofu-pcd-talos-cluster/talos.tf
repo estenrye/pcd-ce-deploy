@@ -229,6 +229,25 @@ data "talos_machine_configuration" "controlplane" {
         clusterCIDR = join(",", local.pod_pool_cidrs)
       }
     }),
+    # Let the flux-platform etcd-snapshot CronJob (namespace etcd-backup) take
+    # etcd snapshots through the Talos API. Talos creates a talosconfig Secret
+    # for each talos.dev/v1alpha1 ServiceAccount in an allowed namespace, with
+    # only the listed roles -- os:etcd:backup can read a snapshot and nothing
+    # else (no config, no reset/reboot). Scheduled snapshots go to Cloudflare
+    # R2 (applications/etcd-snapshot in flux-platform-src); added after the
+    # Nov 2026 NFS outage, when core-infra had no etcd backup at all.
+    # Control plane only: this feature is served by the control-plane apid.
+    yamlencode({
+      machine = {
+        features = {
+          kubernetesTalosAPIAccess = {
+            enabled                     = true
+            allowedRoles                = ["os:etcd:backup"]
+            allowedKubernetesNamespaces = ["etcd-backup"]
+          }
+        }
+      }
+    }),
     # Control plane only: workers ignore inlineManifests anyway. Unlike
     # extraManifests, Talos re-applies these when their contents change.
     yamlencode({
