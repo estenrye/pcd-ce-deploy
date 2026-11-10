@@ -192,9 +192,9 @@
       changed_when: "'created user' in hc_bootstrap.stdout"
       no_log: true
 
-    - name: Show the bootstrap result (check code only)
+    - name: Show the bootstrap result (check slugs and codes only)
       ansible.builtin.debug:
-        msg: "{{ hc_bootstrap.stdout_lines | select('match', '^OK ') | list }}"
+        msg: "{{ hc_bootstrap.stdout_lines | select('match', '^(CHECK|OK)') | list }}"
 
   handlers:
     - name: Recreate stack
