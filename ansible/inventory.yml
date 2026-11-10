@@ -78,3 +78,13 @@ all:
                 routes:
                 - to: default
                   via: 10.45.0.1
+
+    # Self-hosted Healthchecks, outside the core-infra cluster (dead-man's-switch
+    # for the etcd snapshot CronJob). Created by tofu-pcd-vms (healthchecks-vm).
+    # Reach it from the workstation directly or via the PCD host.
+    healthchecks_vms:
+      hosts:
+        healthchecks-vm:
+          ansible_host: "fd97:45c2:b3a1:1000::30e"
+      vars:
+        ansible_user: ubuntu
