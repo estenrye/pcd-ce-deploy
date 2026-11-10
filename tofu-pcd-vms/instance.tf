@@ -7,6 +7,7 @@ resource "pcd_compute_instance" "default" {
   key_pair    = pcd_compute_keypair.default[each.value.key_pair].name
   security_groups = [ for sg in each.value.security_groups : pcd_networking_secgroup.default[sg].name ]
   config_drive = each.value.config_drive
+  user_data    = each.value.user_data
 
   dynamic "network" {
     for_each = each.value.networks

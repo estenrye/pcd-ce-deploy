@@ -39,6 +39,15 @@ compute_flavors = {
         ram   = 512
         disk  = 5
     }
+    # Self-hosted Healthchecks (etcd snapshot dead-man's-switch). The flavor
+    # disk is image-backed local storage on the hypervisor, deliberately NOT
+    # NFS-backed Cinder, so a NAS outage cannot silence the monitor along
+    # with the cluster.
+    "healthchecks" = {
+        vcpus = 2
+        ram   = 2048
+        disk  = 20
+    }
 }
 
 security_groups = {
@@ -47,6 +56,9 @@ security_groups = {
     }
     "allow-bgp-icmp" = {
         description = "Allow BGP and ICMPv6 between bgp-net clients and the gateway."
+    }
+    "allow-web-internal" = {
+        description = "Allow HTTP/HTTPS from the internal ULA range only."
     }
 }
 
@@ -118,6 +130,26 @@ security_group_rules = {
         ethertype          = "IPv6"
         protocol           = "ipv6-icmp"
         remote_ip_prefix   = "fd97:45c2:b3a1:1179::1/128"
+    },
+    "allow-web-http-v6-ingress" = {
+        security_group     = "allow-web-internal"
+        description        = "Allow HTTP (ACME fallback, redirect to HTTPS) from the internal ULA range"
+        direction          = "ingress"
+        ethertype          = "IPv6"
+        protocol           = "tcp"
+        port_range_min     = 80
+        port_range_max     = 80
+        remote_ip_prefix   = "fd97:45c2:b3a1::/48"
+    },
+    "allow-web-https-v6-ingress" = {
+        security_group     = "allow-web-internal"
+        description        = "Allow HTTPS from the internal ULA range (UI and ping endpoint)"
+        direction          = "ingress"
+        ethertype          = "IPv6"
+        protocol           = "tcp"
+        port_range_min     = 443
+        port_range_max     = 443
+        remote_ip_prefix   = "fd97:45c2:b3a1::/48"
     },
     "allow-bgp-icmp-v6-egress" = {
         security_group     = "allow-bgp-icmp"
@@ -251,6 +283,56 @@ compute_instances = {
         # vlan1000-net is IPv6-only, so the IPv4 metadata endpoint isn't
         # reachable - cloud-init needs the config drive to get its SSH key.
         config_drive    = true
+    }
+    # Self-hosted Healthchecks, outside the core-infra cluster. Configured by
+    # ansible/provision-healthchecks.yml.
+    "healthchecks-vm" = {
+        image_name      = "ubuntu-noble"
+        flavor_name     = "healthchecks"
+        key_pair        = "esten-personal"
+        security_groups = ["allow-ssh-icmp", "allow-web-internal"]
+        networks        = ["vlan1000-net"]
+        config_drive    = true
+        # vlan1000-net is DHCPv6-stateful, but the Ubuntu image only came up
+        # with a SLAAC address. Neutron port security allows traffic only from
+        # the port's assigned (DHCPv6) address, so the VM was unreachable and
+        # could reach nothing. Use DHCPv6 and turn SLAAC off, as the Talos
+        # nodes do (tofu-pcd-talos-cluster/talos.tf common_machine.sysctls).
+        user_data       = <<-EOT
+          #cloud-config
+          write_files:
+            - path: /etc/netplan/60-dhcpv6-only.yaml
+              permissions: "0600"
+              content: |
+                network:
+                  version: 2
+                  ethernets:
+                    ens3:
+                      dhcp4: false
+                      dhcp6: true
+                      accept-ra: true
+            # The gateway's RAs do not set the "managed" flag, so networkd
+            # never starts its DHCPv6 client on its own (Talos does it
+            # unconditionally). Force it, and ignore SLAAC prefixes.
+            - path: /etc/systemd/network/10-netplan-ens3.network.d/dhcpv6-always.conf
+              permissions: "0644"
+              content: |
+                [IPv6AcceptRA]
+                DHCPv6Client=always
+                UseAutonomousPrefix=no
+            - path: /etc/sysctl.d/60-no-slaac.conf
+              permissions: "0644"
+              content: |
+                net.ipv6.conf.all.autoconf = 0
+                net.ipv6.conf.default.autoconf = 0
+                net.ipv6.conf.ens3.autoconf = 0
+          runcmd:
+            - sysctl --system
+            - netplan apply
+            - ip -6 addr flush dev ens3 scope global
+            - networkctl reload
+            - networkctl reconfigure ens3
+        EOT
     }
 }
 

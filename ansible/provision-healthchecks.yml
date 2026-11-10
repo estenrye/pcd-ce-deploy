@@ -1,0 +1,203 @@
+---
+# Self-hosted Healthchecks (https://healthchecks.io/docs/self_hosted/) on the
+# healthchecks-vm created by tofu-pcd-vms. It is the dead-man's-switch for the
+# core-infra etcd snapshot CronJob and lives OUTSIDE the cluster, on local
+# (non-NFS) hypervisor storage, so it still alerts when the cluster or the NAS
+# is down. A total PCD outage would silence it too; see
+# flux-platform-src/docs/runbooks/healthchecks-self-hosted.md.
+#
+# Both containers use host networking: the VM is IPv6-only, and Docker's
+# default bridge would give containers IPv4-only egress. Inbound is limited to
+# 22/80/443 from the ULA range by the Neutron security groups.
+#
+# Secrets come from 1Password at run time (never written to this repo):
+#   Platform9/healthchecks-secret-key, healthchecks-admin,
+#   healthchecks-discord-webhook;  core-infra/cloudflare-api-token (Caddy's
+#   ACME DNS challenge for healthchecks.rye.ninja).
+#
+# Usage (needs the 1Password CLI unlocked):
+#   OP_ACCOUNT=ryefamily.1password.com \
+#   ansible-playbook -i inventory.yml provision-healthchecks.yml
+
+- name: Provision self-hosted Healthchecks
+  hosts: healthchecks_vms
+  become: true
+  gather_facts: false
+
+  vars:
+    hc_fqdn: healthchecks.rye.ninja
+    hc_dir: /opt/healthchecks
+    # healthchecks/healthchecks:v5.0.3 and caddybuilds/caddy-cloudflare:2.11-alpine
+    hc_image: "healthchecks/healthchecks@sha256:5eb96eb72dc63ac24743f1c0fc4469931155329e05c9781a0809320de0ae479c"
+    caddy_image: "caddybuilds/caddy-cloudflare@sha256:17505a5e55432764957953787b065f400a1f1a0c280c3b4da2c99ce4746708d6"
+    op_account: ryefamily.1password.com
+
+    hc_secret_key: "{{ lookup('ansible.builtin.pipe', 'op read op://Platform9/healthchecks-secret-key/credential --account ' ~ op_account) }}"
+    hc_admin_email: "{{ lookup('ansible.builtin.pipe', 'op read op://Platform9/healthchecks-admin/username --account ' ~ op_account) }}"
+    hc_admin_password: "{{ lookup('ansible.builtin.pipe', 'op read op://Platform9/healthchecks-admin/password --account ' ~ op_account) }}"
+    hc_discord_webhook: "{{ lookup('ansible.builtin.pipe', 'op read op://Platform9/healthchecks-discord-webhook/credential --account ' ~ op_account) }}"
+    hc_cf_token: "{{ lookup('ansible.builtin.pipe', 'op read op://core-infra/cloudflare-api-token/credential --account ' ~ op_account) }}"
+
+  tasks:
+    - name: Install Docker and the compose plugin
+      ansible.builtin.apt:
+        name: [docker.io, docker-compose-v2]
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Ensure Docker is running
+      ansible.builtin.systemd:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Create the application directory
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - "{{ hc_dir }}"
+        - "{{ hc_dir }}/data"
+
+    # The image runs as uid/gid 999 (hc) and writes the sqlite database here.
+    - name: Make the data directory writable by the app user
+      ansible.builtin.file:
+        path: "{{ hc_dir }}/data"
+        owner: "999"
+        group: "999"
+        mode: "0750"
+
+    - name: Write the Healthchecks environment file
+      ansible.builtin.copy:
+        dest: "{{ hc_dir }}/healthchecks.env"
+        owner: root
+        group: root
+        mode: "0600"
+        content: |
+          SECRET_KEY={{ hc_secret_key }}
+          SITE_ROOT=https://{{ hc_fqdn }}
+          SITE_NAME=rye.ninja Healthchecks
+          ALLOWED_HOSTS={{ hc_fqdn }},localhost,127.0.0.1
+          DB=sqlite
+          DB_NAME=/data/hc.sqlite
+          DEBUG=False
+          REGISTRATION_OPEN=False
+          DEFAULT_FROM_EMAIL=healthchecks@rye.ninja
+          PORT=8000
+          APPRISE_ENABLED=False
+          TZ=UTC
+      no_log: true
+      notify: Recreate stack
+
+    - name: Write the Caddy environment file
+      ansible.builtin.copy:
+        dest: "{{ hc_dir }}/caddy.env"
+        owner: root
+        group: root
+        mode: "0600"
+        content: |
+          CF_API_TOKEN={{ hc_cf_token }}
+      no_log: true
+      notify: Recreate stack
+
+    - name: Write the Caddyfile
+      ansible.builtin.copy:
+        dest: "{{ hc_dir }}/Caddyfile"
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          {{ hc_fqdn }} {
+            tls {
+              dns cloudflare {env.CF_API_TOKEN}
+              # Check propagation against Cloudflare directly. IPv6 only: the
+              # VM has no IPv4 route, so an IPv4 resolver literal is unreachable.
+              resolvers 2606:4700:4700::1111 2606:4700:4700::1001
+            }
+            encode zstd gzip
+            reverse_proxy 127.0.0.1:8000
+          }
+      notify: Recreate stack
+
+    - name: Write the compose file
+      ansible.builtin.copy:
+        dest: "{{ hc_dir }}/compose.yaml"
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          services:
+            healthchecks:
+              image: {{ hc_image }}
+              container_name: healthchecks
+              network_mode: host
+              restart: unless-stopped
+              env_file: healthchecks.env
+              volumes:
+                - ./data:/data
+            caddy:
+              image: {{ caddy_image }}
+              container_name: caddy
+              network_mode: host
+              restart: unless-stopped
+              env_file: caddy.env
+              volumes:
+                - ./Caddyfile:/etc/caddy/Caddyfile:ro
+                - caddy_data:/data
+                - caddy_config:/config
+          volumes:
+            caddy_data: {}
+            caddy_config: {}
+      notify: Recreate stack
+
+    - name: Start the stack
+      ansible.builtin.command: docker compose up -d
+      args:
+        chdir: "{{ hc_dir }}"
+      register: compose_up
+      changed_when: "'Started' in compose_up.stderr or 'Created' in compose_up.stderr or 'Recreated' in compose_up.stderr"
+
+    - name: Wait for Healthchecks to answer locally
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8000/api/v3/status/
+        status_code: 200
+      register: hc_up
+      retries: 30
+      delay: 5
+      until: hc_up.status == 200
+
+    - name: Copy the first-run setup script
+      ansible.builtin.copy:
+        src: files/healthchecks-bootstrap.py
+        dest: "{{ hc_dir }}/bootstrap.py"
+        owner: root
+        group: root
+        mode: "0600"
+
+    # Secrets are passed with `docker exec -e NAME` (no value), so they come
+    # from this task's environment and never appear on a command line.
+    - name: Create the admin user, project, Discord channel and etcd check
+      ansible.builtin.shell: |
+        docker exec -i -e HC_ADMIN_EMAIL -e HC_ADMIN_PASSWORD -e HC_DISCORD_WEBHOOK \
+          healthchecks ./manage.py shell < {{ hc_dir }}/bootstrap.py
+      args:
+        executable: /bin/bash
+      environment:
+        HC_ADMIN_EMAIL: "{{ hc_admin_email }}"
+        HC_ADMIN_PASSWORD: "{{ hc_admin_password }}"
+        HC_DISCORD_WEBHOOK: "{{ hc_discord_webhook }}"
+      register: hc_bootstrap
+      changed_when: "'created user' in hc_bootstrap.stdout"
+      no_log: true
+
+    - name: Show the bootstrap result (check code only)
+      ansible.builtin.debug:
+        msg: "{{ hc_bootstrap.stdout_lines | select('match', '^OK ') | list }}"
+
+  handlers:
+    - name: Recreate stack
+      ansible.builtin.command: docker compose up -d --force-recreate
+      args:
+        chdir: "{{ hc_dir }}"

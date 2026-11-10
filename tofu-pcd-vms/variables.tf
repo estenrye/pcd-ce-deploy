@@ -221,6 +221,7 @@ variable "compute_instances" {
     security_groups = optional(list(string))
     networks     = optional(list(string))
     config_drive = optional(bool, false)
+    user_data    = optional(string)
   }))
   default     = {}
 }
