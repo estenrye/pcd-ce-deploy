@@ -49,18 +49,59 @@ channel.name = "Discord"
 channel.value = json.dumps(spec)
 channel.save()
 
-# The etcd snapshot CronJob runs every 6h; alert if nothing for 6h + 2h grace.
-check = Check.objects.filter(project=project, slug="etcd-snapshot-core-infra").first()
-if check is None:
-    check = Check(project=project)
-check.name = "etcd-snapshot core-infra"
-check.slug = "etcd-snapshot-core-infra"
-check.kind = "simple"
-check.timeout = timedelta(hours=6)
-check.grace = timedelta(hours=2)
-check.tags = "core-infra etcd backup"
-check.desc = "Pinged by the etcd-snapshot CronJob after a successful upload to R2."
-check.save()
-channel.checks.add(check)
+# Checks. Each is a dead-man's-switch: the job that owns it pings on success,
+# /fail on a detected problem, and silence past period+grace also alerts.
+CHECKS = [
+    # name, slug, period, grace, tags, description
+    (
+        "etcd-snapshot core-infra",
+        "etcd-snapshot-core-infra",
+        timedelta(hours=6),
+        timedelta(hours=2),
+        "core-infra etcd backup",
+        "Pinged by the etcd-snapshot CronJob after a successful upload to R2.",
+    ),
+    # cnpg-backup-watcher CronJob runs daily at 05:00 UTC, after the
+    # 03:15/03:45 UTC ScheduledBackups.
+    (
+        "cnpg-backup keycloak-db",
+        "cnpg-backup-keycloak-db",
+        timedelta(days=1),
+        timedelta(hours=3),
+        "core-infra cnpg backup",
+        "Pinged by the cnpg-backup-watcher CronJob when the latest CNPG backup is fresh and WAL archiving is healthy.",
+    ),
+    (
+        "cnpg-backup grafana-db",
+        "cnpg-backup-grafana-db",
+        timedelta(days=1),
+        timedelta(hours=3),
+        "core-infra cnpg backup",
+        "Pinged by the cnpg-backup-watcher CronJob when the latest CNPG backup is fresh and WAL archiving is healthy.",
+    ),
+    (
+        "cnpg-backup seaweedfs-db",
+        "cnpg-backup-seaweedfs-db",
+        timedelta(days=1),
+        timedelta(hours=3),
+        "core-infra cnpg backup",
+        "Pinged by the cnpg-backup-watcher CronJob when the latest CNPG backup is fresh and WAL archiving is healthy.",
+    ),
+]
 
-print("OK check_code=%s" % check.code)
+for name, slug, period, grace, tags, desc in CHECKS:
+    check = Check.objects.filter(project=project, slug=slug).first()
+    if check is None:
+        check = Check(project=project)
+    check.name = name
+    check.slug = slug
+    check.kind = "simple"
+    check.timeout = period
+    check.grace = grace
+    check.tags = tags
+    check.desc = desc
+    check.save()
+    channel.checks.add(check)
+    print("CHECK %s %s" % (slug, check.code))
+
+print("OK")
