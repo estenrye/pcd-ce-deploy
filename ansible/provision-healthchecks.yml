@@ -36,6 +36,11 @@
     hc_admin_email: "{{ lookup('ansible.builtin.pipe', 'op read op://Home_Lab/healthchecks-admin/username --account ' ~ op_account) }}"
     hc_admin_password: "{{ lookup('ansible.builtin.pipe', 'op read op://Home_Lab/healthchecks-admin/password --account ' ~ op_account) }}"
     hc_discord_webhook: "{{ lookup('ansible.builtin.pipe', 'op read op://Home_Lab/healthchecks-discord-webhook/credential --account ' ~ op_account) }}"
+    r2_endpoint: "{{ lookup('ansible.builtin.pipe', 'op read op://Home_Lab/cloudflare-r2-healthchecks-db/endpoint --account ' ~ op_account) }}"
+    r2_bucket: "{{ lookup('ansible.builtin.pipe', 'op read op://Home_Lab/cloudflare-r2-healthchecks-db/bucket --account ' ~ op_account) }}"
+    r2_access_key_id: "{{ lookup('ansible.builtin.pipe', 'op read op://Home_Lab/cloudflare-r2-healthchecks-db/access-key-id --account ' ~ op_account) }}"
+    r2_secret_access_key: "{{ lookup('ansible.builtin.pipe', 'op read op://Home_Lab/cloudflare-r2-healthchecks-db/secret-access-key --account ' ~ op_account) }}"
+    age_recipient: "{{ lookup('ansible.builtin.pipe', 'op read op://Home_Lab/healthchecks-db-backup-age-key/public-key --account ' ~ op_account) }}"
     hc_cf_token: "{{ lookup('ansible.builtin.pipe', 'op read op://core-infra/cloudflare-api-token/credential --account ' ~ op_account) }}"
 
   tasks:
@@ -196,7 +201,100 @@
       ansible.builtin.debug:
         msg: "{{ hc_bootstrap.stdout_lines | select('match', '^(CHECK|OK)') | list }}"
 
+    # ---- Daily encrypted DB backup to R2 -------------------------------------
+    - name: Install age
+      ansible.builtin.apt:
+        name: age
+        state: present
+
+    - name: Pull the rclone image used by the backup script
+      ansible.builtin.command: docker pull rclone/rclone@sha256:74c51b8817e5431bd6d7ed27cb2a50d8ee78d77f6807b72a41ef6f898845942b
+      register: rclone_pull
+      changed_when: "'Downloaded newer image' in rclone_pull.stdout"
+
+    - name: Install the backup script
+      ansible.builtin.copy:
+        src: files/healthchecks-db-backup.sh
+        dest: /usr/local/sbin/healthchecks-db-backup
+        owner: root
+        group: root
+        mode: "0750"
+
+    - name: Find the backup check's ping code
+      ansible.builtin.set_fact:
+        hc_db_backup_code: "{{ (hc_bootstrap.stdout_lines | select('match', '^CHECK healthchecks-db-backup ') | first).split(' ')[-1] }}"
+      no_log: true
+
+    - name: Write the backup environment file
+      ansible.builtin.copy:
+        dest: /opt/healthchecks/backup.env
+        owner: root
+        group: root
+        mode: "0600"
+        content: |
+          RCLONE_CONFIG_R2_TYPE=s3
+          RCLONE_CONFIG_R2_PROVIDER=Cloudflare
+          RCLONE_CONFIG_R2_ENV_AUTH=false
+          RCLONE_CONFIG_R2_NO_CHECK_BUCKET=true
+          RCLONE_CONFIG_R2_ACCESS_KEY_ID={{ r2_access_key_id }}
+          RCLONE_CONFIG_R2_SECRET_ACCESS_KEY={{ r2_secret_access_key }}
+          RCLONE_CONFIG_R2_ENDPOINT={{ r2_endpoint }}
+          R2_BUCKET={{ r2_bucket }}
+          AGE_RECIPIENT={{ age_recipient }}
+          PING_URL=http://127.0.0.1:8000/ping/{{ hc_db_backup_code }}
+      no_log: true
+
+    - name: Install the backup service
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/healthchecks-db-backup.service
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=Encrypted Healthchecks DB backup to R2
+          Wants=network-online.target
+          After=network-online.target docker.service
+
+          [Service]
+          Type=oneshot
+          EnvironmentFile=/opt/healthchecks/backup.env
+          ExecStart=/usr/local/sbin/healthchecks-db-backup
+      notify: Reload systemd
+
+    - name: Install the backup timer
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/healthchecks-db-backup.timer
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=Daily Healthchecks DB backup
+
+          [Timer]
+          OnCalendar=*-*-* 02:30:00 UTC
+          RandomizedDelaySec=300
+          Persistent=true
+
+          [Install]
+          WantedBy=timers.target
+      notify: Reload systemd
+
+    - name: Flush handlers so systemd sees the new units
+      ansible.builtin.meta: flush_handlers
+
+    - name: Enable the backup timer
+      ansible.builtin.systemd:
+        name: healthchecks-db-backup.timer
+        state: started
+        enabled: true
+
   handlers:
+    - name: Reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: true
+
     - name: Recreate stack
       ansible.builtin.command: docker compose up -d --force-recreate
       args:

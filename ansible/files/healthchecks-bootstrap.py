@@ -87,6 +87,17 @@ CHECKS = [
         "core-infra cnpg backup",
         "Pinged by the cnpg-backup-watcher CronJob when the latest CNPG backup is fresh and WAL archiving is healthy.",
     ),
+    # Daily 02:30 UTC timer on this VM (healthchecks-db-backup.timer). It can
+    # only alert while Healthchecks itself is up: it catches a failing backup,
+    # not the loss of this VM.
+    (
+        "healthchecks-db-backup",
+        "healthchecks-db-backup",
+        timedelta(days=1),
+        timedelta(hours=3),
+        "healthchecks backup",
+        "Pinged by healthchecks-db-backup.service after an encrypted DB backup is uploaded to R2.",
+    ),
 ]
 
 for name, slug, period, grace, tags, desc in CHECKS:
