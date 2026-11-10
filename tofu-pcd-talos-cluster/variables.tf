@@ -261,6 +261,12 @@ variable "minecraft_allowed_prefixes" {
   default     = ["::/0"]
 }
 
+variable "dns_allowed_prefixes" {
+  description = "IPv6 prefixes allowed to reach 53/udp on the nodes (the pdns4-shim Gateway's DNS NOTIFY/SOA listener, flux-platform-src applications/pdns4-shim). Security-group rules can't match on destination IP, so this applies to every VIP pool at once. Defaults to the PCD external network, where Designate's mdns/worker send NOTIFY from; unlike 80/443 this is an authoritative DNS responder, so it is not open to ::/0."
+  type        = list(string)
+  default     = ["fd97:45c2:b3a1:100::/64"]
+}
+
 variable "cluster_name" {
   description = "Talos/Kubernetes cluster name."
   type        = string
