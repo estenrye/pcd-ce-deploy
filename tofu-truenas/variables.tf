@@ -211,3 +211,14 @@ variable "nfs_allowed_networks" {
     "fd97:45c2:b3a1:100::/64"
   ]
 }
+
+variable "replication_ssh_public_key" {
+  description = "Public half of the KVM host's replication key (/root/.ssh/replication_ed25519 on mf-ms-a2-01), installed as the replication user's authorized key. Get it with `sudo ssh-keygen -y -f /root/.ssh/replication_ed25519`."
+  type        = string
+}
+
+variable "replication_zfs_prefix" {
+  description = "Dataset the replication user may receive into and prune snapshots under. One child zvol per replicated VM disk."
+  type        = string
+  default     = "flash-pool/replication/mf-ms-a2-01.usmnblm01.rye.ninja/vms"
+}

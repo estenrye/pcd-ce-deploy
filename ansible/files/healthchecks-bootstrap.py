@@ -98,6 +98,18 @@ CHECKS = [
         "healthchecks backup",
         "Pinged by healthchecks-db-backup.service after an encrypted DB backup is uploaded to R2.",
     ),
+    # Nightly timer on the KVM host (zfs-replicate-vms.timer, 02:30 UTC +
+    # up to 15 min random delay) replicating the vmpool/vms zvols (pcd-ce) to
+    # the NAS. Pings /start when it begins, success when every zvol is sent
+    # and pruned, /fail on error.
+    (
+        "zfs-replicate-vms",
+        "zfs-replicate-vms",
+        timedelta(days=1),
+        timedelta(hours=3),
+        "kvm backup",
+        "Pinged by zfs-replicate-vms.service on mf-ms-a2-01 after the nightly vmpool/vms zvol replication to the NAS completes.",
+    ),
 ]
 
 for name, slug, period, grace, tags, desc in CHECKS:

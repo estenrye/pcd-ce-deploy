@@ -6,6 +6,10 @@ terraform {
       source  = "PjSalty/truenas"
       version = "~> 2.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
     onepassword = {
       source  = "1Password/onepassword"
       version = "~> 3.0"
