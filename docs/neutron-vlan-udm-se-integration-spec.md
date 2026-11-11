@@ -318,7 +318,7 @@ originally framed:
   authenticating at `10.45.0.1` — `GET
   https://10.45.0.1/proxy/network/integration/v1/sites` with header
   `X-API-KEY: <key>` (from
-  `op://controlplane/unifi-os-xnetworksegment/credential`) returned HTTP
+  `op://pcd.rye.ninja/unifi-os-xnetworksegment/credential`) returned HTTP
   200 with one site, `internalReference: "default"` — verified from both
   the PCD host and from inside a pod's own network namespace in this
   cluster, not just the host. Still open: whether this API exposes
