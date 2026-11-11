@@ -104,7 +104,14 @@ dns_role_pool_configurations = {
                 ]
                 nameservers = [
                     {
-                        host = "fd97:45c2:b3a1:f00::9280"
+                        # The pdns4-shim Gateway's pinned VIP on core-infra
+                        # (flux-platform-src applications/pdns4-shim/base
+                        # resources/gateway.yaml, projectcalico.org/loadBalancerIPs).
+                        # Must be an IP: this Designate rejects a hostname here over
+                        # RPC (IPOrHost overrides coerce but not from_primitive, so
+                        # `designate-manage pool update` fails in from_primitive).
+                        # Change it together with the Gateway annotation.
+                        host = "fd97:45c2:b3a1:f00::1:9281"
                         port = 53
                     }
                 ]
