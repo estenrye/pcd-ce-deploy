@@ -55,6 +55,23 @@ The first JSON-RPC call each run triggers a biometric/system-unlock prompt
 from the desktop app to authorize reading the vault item; no secret ever
 sits in your shell environment or history.
 
+## Replication user (KVM host zvol replication)
+
+`replication.tf` provisions the NAS side of the KVM host's nightly
+`zfs-replicate-vms` job (flux-platform-src `providers/kvm/scripts/`):
+
+- `replication` user with the host's public key (`replication_ssh_public_key`
+  = `sudo ssh-keygen -y -f /root/.ssh/replication_ed25519` on mf-ms-a2-01).
+- SSH service enabled, key-only (`passwordauth = false`, no forwarding).
+- Passwordless sudo for exactly: `zfs recv`, `send`, `list` and snapshot-only
+  `destroy` under `replication_zfs_prefix`. The provider cannot set
+  `sudo_commands_nopasswd` or ZFS delegations, so `scripts/set_sudo_nopasswd.py`
+  sets the sudo rules through the API.
+
+After the first apply, or after the NAS is replaced, trust its SSH host key on
+the KVM host: compare the fingerprint `ssh` shows with the NAS's own
+`/etc/ssh/ssh_host_ed25519_key.pub` before updating `/root/.ssh/known_hosts`.
+
 ## NFS access
 
 `nfs_allowed_networks` (in `variables.tf`) is pinned to the specific hosts

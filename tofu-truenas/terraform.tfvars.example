@@ -13,3 +13,6 @@ truenas_nfs_host = "10.45.0.2"               # storage-network address NFS clien
 # onepassword_item_title = "truenas-api-key"
 # pool_name              = "flash-pool"
 # nfs_allowed_networks   = ["10.45.45.45/32"]
+
+# Public half of the KVM host replication key (sudo ssh-keygen -y -f /root/.ssh/replication_ed25519)
+replication_ssh_public_key = "ssh-ed25519 AAAA... zfs-replication mf-ms-a2-01"
