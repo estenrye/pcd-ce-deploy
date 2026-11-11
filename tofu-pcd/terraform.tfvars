@@ -140,7 +140,17 @@ dns_role_pool_configurations = {
                             }
                         ]
                         options = {
-                            host         = "10.45.60.1"
+                            # NOTIFY target (worker/tasks/zone.py SendNotify -> dnsutils.notify).
+                            # It was 10.45.60.1, the hypervisor's own dnsmasq (copied from the
+                            # generic BIND example in the first pool config), which ignores
+                            # NOTIFY: the shim never learned about record changes. The shim
+                            # AXFR-pulls a zone from designate-mdns only when it receives a
+                            # NOTIFY on its UDP/53 listener, so this must point at the shim.
+                            # options are free-form strings (unlike nameservers[].host, which
+                            # must be an IP): a hostname survives the RPC round-trip and is
+                            # resolved with getaddrinfo at send time. Needs the node security
+                            # group that allows 53/udp (talos-dns).
+                            host         = "pdns4-shim.rye.ninja"
                             port         = 53
                             api_endpoint = "https://pdns4-shim.rye.ninja:443"
                             api_token    = "example_token"
