@@ -368,7 +368,7 @@ network_dns_zone_associations = {
 neutron_ml2_guardian = {
     chart_version = "0.1.2"
     unifi_api_key_item = {
-        vault = "controlplane"
+        vault = "pcd.rye.ninja"
         title = "unifi-os-xnetworksegment"
     }
     unifi_host = "10.45.0.1"

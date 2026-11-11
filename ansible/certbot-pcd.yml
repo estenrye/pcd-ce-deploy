@@ -45,7 +45,7 @@
 
     cf_credentials_path: /etc/letsencrypt/cloudflare.ini
     onepassword_account: ryefamily.1password.com
-    onepassword_vault: controlplane
+    onepassword_vault: pcd.rye.ninja
     onepassword_item_title: cloudflare-api-token
     onepassword_field: credential
 

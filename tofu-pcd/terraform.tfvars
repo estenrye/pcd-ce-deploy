@@ -83,7 +83,7 @@ storage_backends_json = {
 
 pdns4_credential_items = {
     "https://pdns4-shim.rye.ninja:443" : {
-        vault = "controlplane"
+        vault = "pcd.rye.ninja"
         title = "pdns4-shim.rye.ninja"
     }
 }
