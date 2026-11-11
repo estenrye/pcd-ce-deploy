@@ -151,6 +151,34 @@ resource "pcd_networking_secgroup_rule" "minecraft_ingress" {
   remote_ip_prefix  = each.value
 }
 
+# DNS (53/udp) for the pdns4-shim Gateway (flux-platform-src
+# applications/pdns4-shim), which answers Designate's NOTIFY/SOA polls on a UDP
+# listener of the same Gateway as its HTTPS API. Same mechanics as the HTTPS and
+# Minecraft groups above: kube-proxy DNATs the Gateway's LoadBalancer VIP to the
+# Envoy pod on the node, so the packet reaches the node's port as 53/udp and is
+# filtered here first. Rules can't match on destination IP, so this covers every
+# VIP pool at once. Confirmed live 2026-11-10: a DNS query through the Gateway's
+# ClusterIP got a reply from inside the cluster, while the same query to the
+# Gateway's internal VIP from the PCD host timed out (443/tcp to the same VIP
+# worked). Own group so DNS exposure can be detached independently.
+resource "pcd_networking_secgroup" "dns" {
+  name        = "${var.cluster_name}-dns"
+  description = "Inbound DNS (53/udp) to the ${var.cluster_name} cluster"
+}
+
+resource "pcd_networking_secgroup_rule" "dns_ingress" {
+  for_each = toset(var.dns_allowed_prefixes)
+
+  security_group_id = pcd_networking_secgroup.dns.id
+  description       = "Allow DNS (53/udp) from ${each.value}"
+  direction         = "ingress"
+  ethertype         = "IPv6"
+  protocol          = "udp"
+  port_range_min    = 53
+  port_range_max    = 53
+  remote_ip_prefix  = each.value
+}
+
 # With more than one node, everything the CNI, Spegel (5001/tcp), and
 # Kubernetes need between nodes -- BGP mesh sessions, overlay tunnels,
 # health checks, pod-to-pod traffic -- has to be allowed member-to-member.
