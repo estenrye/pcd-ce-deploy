@@ -87,6 +87,17 @@ CHECKS = [
         "core-infra cnpg backup",
         "Pinged by the cnpg-backup-watcher CronJob when the latest CNPG backup is fresh and WAL archiving is healthy.",
     ),
+    # gitea-repos-capacity CronJob (flux-platform-src applications/gitea) runs
+    # hourly at :17, pings on success and /fail at 75% or more of the
+    # gitea-repos dataset quota (50 GiB).
+    (
+        "gitea-repos capacity",
+        "gitea-repos-capacity",
+        timedelta(hours=1),
+        timedelta(minutes=30),
+        "core-infra gitea",
+        "Pinged by the gitea-repos-capacity CronJob while the Gitea repository volume is under 75% full; /fail at or above 75%.",
+    ),
     # Daily 02:30 UTC timer on this VM (healthchecks-db-backup.timer). It can
     # only alert while Healthchecks itself is up: it catches a failing backup,
     # not the loss of this VM.
