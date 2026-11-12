@@ -84,7 +84,8 @@ the KVM host: compare the fingerprint `ssh` shows with the NAS's own
   client mapped to `gitea` (`mapall`), so the rootless Gitea pod can write without
   `fsGroup`. Clients mount `nfs.nas.rye.ninja` with `nfsvers=4.1`; the server still
   offers NFSv3 for the PCD exports.
-- Snapshot tasks: hourly (2 days) and daily at 23:15 local (30 days).
+- Snapshot tasks: hourly (2 days, skipped when nothing changed) and daily at 23:15 local (30 days, taken even when
+  nothing changed, so the `gitea-repos-snapshots` Healthchecks check can alert on a missing snapshot).
 
 Output `gitea_repos_nfs_export` is the `host:path` for the Kubernetes PV. If the
 quota changes, update the PV capacity and the capacity CronJob in flux-platform-src
