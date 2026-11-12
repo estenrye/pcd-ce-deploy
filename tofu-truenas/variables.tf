@@ -222,3 +222,46 @@ variable "replication_zfs_prefix" {
   type        = string
   default     = "flash-pool/replication/mf-ms-a2-01.usmnblm01.rye.ninja/vms"
 }
+
+variable "gitea_repos_dataset_name" {
+  description = "Name of the dataset holding Gitea's repositories."
+  type        = string
+  default     = "gitea-repos"
+}
+
+variable "gitea_uid" {
+  description = "UID of the NAS user all Gitea NFS clients are mapped to. 3002 and 3003 are taken as GIDs (app_shares, replication), so the next free UID/GID pair is 3004."
+  type        = number
+  default     = 3004
+}
+
+variable "gitea_gid" {
+  description = "GID of the NAS group all Gitea NFS clients are mapped to. See gitea_uid."
+  type        = number
+  default     = 3004
+}
+
+variable "gitea_repos_quota_gib" {
+  description = "Size cap of the Gitea repositories dataset (refquota), in GiB."
+  type        = number
+  default     = 50
+}
+
+variable "gitea_nfs_networks" {
+  description = <<-EOT
+    Networks allowed to mount the Gitea repositories export: core-infra's
+    nodes. The whole Talos cluster lives on bgp-net (VLAN 1179,
+    fd97:45c2:b3a1:1179::/64, tofu-pcd-vms `bgp-subnet-v6`), and the kubelet
+    mounts NFS from the node, so the NAS sees node addresses from that /64.
+    Both the DHCPv6 and the SLAAC address are in it. The NAT66 masquerade is
+    on the Internet 1 uplink only, so NAS-bound traffic keeps its source.
+  EOT
+  type        = list(string)
+  default     = ["fd97:45c2:b3a1:1179::/64"]
+}
+
+variable "gitea_nfs_host" {
+  description = "Name clients mount the Gitea export from. nfs.nas.rye.ninja resolves to the addresses the NFS service listens on (nfs_bind_ips)."
+  type        = string
+  default     = "nfs.nas.rye.ninja"
+}
