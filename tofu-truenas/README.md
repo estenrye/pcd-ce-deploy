@@ -72,6 +72,24 @@ After the first apply, or after the NAS is replaced, trust its SSH host key on
 the KVM host: compare the fingerprint `ssh` shows with the NAS's own
 `/etc/ssh/ssh_host_ed25519_key.pub` before updating `/root/.ssh/known_hosts`.
 
+## Gitea repository storage
+
+`gitea.tf` provisions the storage for Gitea's repositories on core-infra
+(flux-platform-src `applications/gitea`):
+
+- `gitea` group and user, UID/GID 3004 (the first free pair at or above 3002), no login.
+- Dataset `flash-pool/gitea-repos` with a 50 GiB `refquota`, chowned to `gitea` by
+  `scripts/chown_path.py` (new datasets are root-owned).
+- NFS export limited to `gitea_nfs_networks` (core-infra's bgp-net, VLAN 1179, `fd97:45c2:b3a1:1179::/64`), with every
+  client mapped to `gitea` (`mapall`), so the rootless Gitea pod can write without
+  `fsGroup`. Clients mount `nfs.nas.rye.ninja` with `nfsvers=4.1`; the server still
+  offers NFSv3 for the PCD exports.
+- Snapshot tasks: hourly (2 days) and daily at 23:15 local (30 days).
+
+Output `gitea_repos_nfs_export` is the `host:path` for the Kubernetes PV. If the
+quota changes, update the PV capacity and the capacity CronJob in flux-platform-src
+too.
+
 ## NFS access
 
 `nfs_allowed_networks` (in `variables.tf`) is pinned to the specific hosts

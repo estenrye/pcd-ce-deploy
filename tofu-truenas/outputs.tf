@@ -7,3 +7,8 @@ output "glance_nfs_export" {
   description = "NFS export path for the Glance (image library) backend, for use in PCD's cluster blueprint image_library_storage."
   value       = "${var.truenas_nfs_host}:${truenas_dataset.glance.mount_point}"
 }
+
+output "gitea_repos_nfs_export" {
+  description = "NFS export for Gitea's repositories (mount with nfsvers=4.1 or 4.2)."
+  value       = "${var.gitea_nfs_host}:${truenas_dataset.gitea_repos.mount_point}"
+}
