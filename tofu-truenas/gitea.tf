@@ -105,6 +105,6 @@ resource "truenas_snapshot_task" "gitea_repos_daily" {
   schedule_dom    = "*"
   schedule_month  = "*"
   schedule_dow    = "*"
-  allow_empty     = false
+  allow_empty     = true
   enabled         = true
 }
