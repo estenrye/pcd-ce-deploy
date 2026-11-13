@@ -262,9 +262,9 @@ variable "minecraft_allowed_prefixes" {
 }
 
 variable "ssh_allowed_prefixes" {
-  description = "IPv6 prefixes allowed to reach 22/tcp on the nodes (the gitea-gateway Gateway's Git SSH listener, flux-platform-src applications/gitea). Security-group rules can't match on destination IP, so this applies to every VIP pool at once. Defaults to the internal ULA prefixes only; widen it (or use ::/0, as 80/443 do) to make Git SSH reachable from the internet."
+  description = "IPv6 prefixes allowed to reach 22/tcp on the nodes (the gitea-gateway Gateway's Git SSH listener, flux-platform-src applications/gitea). Security-group rules can't match on destination IP, so this applies to every VIP pool at once. The Gateway's address is a public GUA, so a LAN client sources from its own GUA (not its ULA) and must match here too: the list is the internal ULA prefixes plus the site's ISP-delegated GUA /60 (2607:3640:1064:270::/60, the LAN /64 and the ingress VIP /64 both fall inside it). That /60 changes when the ISP re-delegates; update it with the rest of the renumber (flux-platform-src docs/runbooks/gua-prefix-renumber.md). Widen to ::/0, as 80/443 do, to make Git SSH reachable from the internet."
   type        = list(string)
-  default     = ["fd97:45c2:b3a1::/48", "fd92:b792:95e:db94::/64"]
+  default     = ["fd97:45c2:b3a1::/48", "fd92:b792:95e:db94::/64", "2607:3640:1064:270::/60"]
 }
 
 variable "dns_allowed_prefixes" {
