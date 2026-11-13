@@ -57,7 +57,7 @@ resource "pcd_compute_instance" "rootless_test" {
     uuid                  = pcd_images_image.talos.id
     destination_type      = "volume"
     boot_index            = 0
-    volume_size           = var.worker_flavor.disk
+    volume_size           = var.rootless_test_node_disk_gb
     volume_type           = var.root_volume_type
     delete_on_termination = true
   }

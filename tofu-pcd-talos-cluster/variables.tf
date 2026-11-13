@@ -709,3 +709,9 @@ variable "rootless_test_node_enabled" {
   type        = bool
   default     = false
 }
+
+variable "rootless_test_node_disk_gb" {
+  description = "Root volume size in GiB for the rootless_test_node.tf worker. Docker image layers and build caches for the Gitea Actions jobs live on the node's ephemeral partition, so it needs more than the 20 GiB regular workers."
+  type        = number
+  default     = 80
+}

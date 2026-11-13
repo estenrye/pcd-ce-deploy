@@ -23,3 +23,7 @@ create_kms_key = true
 enable_oidc_auth = true
 # Dedicated workers (variables.tf default is 4).
 worker_count = 5
+
+# Tainted worker pool (pool=rootless-test) with user namespaces enabled, for the rootless
+# Gitea Actions runners (flux-platform-src applications/gitea-runner). See rootless_test_node.tf.
+rootless_test_node_enabled = true
