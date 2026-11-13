@@ -128,6 +128,25 @@ CHECKS = [
         "core-infra gitea",
         "Pinged by gitea-ssh-probe.service on this VM while git.rye.ninja:22 answers with an SSH banner; /fail when it does not.",
     ),
+    # nat64-probe.timer on this VM, every 5 minutes. nat64-01 runs two tayga
+    # translators plus the unbound DNS64 resolver; tayga failed silently on
+    # 2026-11-13 and took IPv4-only egress (GitHub, ghcr.io) down for hours.
+    (
+        "nat64-wkp",
+        "nat64-wkp",
+        timedelta(minutes=5),
+        timedelta(minutes=10),
+        "network nat64",
+        "Pinged by nat64-probe.service on this VM while the DNS64 resolver answers and a TLS handshake through the well-known prefix 64:ff9b::/96 (tayga) completes; /fail when it does not.",
+    ),
+    (
+        "nat64-private",
+        "nat64-private",
+        timedelta(minutes=5),
+        timedelta(minutes=10),
+        "network nat64",
+        "Pinged by nat64-probe.service on this VM while the private-prefix path (tayga-priv, fd97:45c2:b3a1:64:65::/96) answers a TLS handshake; /fail when it does not.",
+    ),
     # Daily 02:30 UTC timer on this VM (healthchecks-db-backup.timer). It can
     # only alert while Healthchecks itself is up: it catches a failing backup,
     # not the loss of this VM.
