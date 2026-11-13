@@ -1,5 +1,6 @@
 # Talos has no SSH/shell access at all -- management is entirely over
-# apid (50000/tcp) via talosctl. Rules scoped to what an IPv6-only Talos
+# apid (50000/tcp) via talosctl. (Port 22 below is Gitea's Git SSH, served by a
+# Gateway listener in the cluster, not by the nodes.) Rules scoped to what an IPv6-only Talos
 # cluster actually needs; etcd/trustd/kubelet are only ever node-to-node so
 # they're scoped to the bgp-net subnet (where the whole cluster lives)
 # rather than opened to ::/0.
@@ -148,6 +149,33 @@ resource "pcd_networking_secgroup_rule" "minecraft_ingress" {
   protocol          = "tcp"
   port_range_min    = 25565
   port_range_max    = 25565
+  remote_ip_prefix  = each.value
+}
+
+# Git over SSH (22/tcp) for the gitea-gateway Gateway's TCP listener
+# (flux-platform-src applications/gitea). This is the Gateways' port, not an
+# sshd on the nodes: Talos has none. Same mechanics as the HTTPS and Minecraft
+# groups above: kube-proxy DNATs the Gateway's LoadBalancer VIP to the Envoy pod
+# on the node, so the packet reaches the node's port as 22/tcp and is filtered
+# here first. Rules can't match on destination IP, so this covers every VIP pool
+# at once. Own group so SSH exposure can be detached independently. Unlike 443
+# the default is not ::/0: SSH is limited to the internal prefixes until broader
+# access is wanted.
+resource "pcd_networking_secgroup" "ssh" {
+  name        = "${var.cluster_name}-ssh"
+  description = "Inbound Git SSH (22/tcp) to the ${var.cluster_name} cluster"
+}
+
+resource "pcd_networking_secgroup_rule" "ssh_ingress" {
+  for_each = toset(var.ssh_allowed_prefixes)
+
+  security_group_id = pcd_networking_secgroup.ssh.id
+  description       = "Allow Git SSH (22/tcp) from ${each.value}"
+  direction         = "ingress"
+  ethertype         = "IPv6"
+  protocol          = "tcp"
+  port_range_min    = 22
+  port_range_max    = 22
   remote_ip_prefix  = each.value
 }
 
