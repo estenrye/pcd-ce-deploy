@@ -290,6 +290,78 @@
         state: started
         enabled: true
 
+    # ---- Git SSH reachability probe (Gitea, from outside the cluster) ---------
+    - name: Install the Gitea SSH probe
+      ansible.builtin.copy:
+        src: files/gitea-ssh-probe.py
+        dest: /usr/local/sbin/gitea-ssh-probe
+        owner: root
+        group: root
+        mode: "0750"
+
+    - name: Find the Gitea SSH check's ping code
+      ansible.builtin.set_fact:
+        hc_gitea_ssh_code: "{{ (hc_bootstrap.stdout_lines | select('match', '^CHECK gitea-ssh ') | first).split(' ')[-1] }}"
+      no_log: true
+
+    - name: Write the Gitea SSH probe environment file
+      ansible.builtin.copy:
+        dest: /opt/healthchecks/gitea-ssh-probe.env
+        owner: root
+        group: root
+        mode: "0600"
+        content: |
+          PING_URL=http://127.0.0.1:8000/ping/{{ hc_gitea_ssh_code }}
+          HOST=git.rye.ninja
+          PORT=22
+      no_log: true
+
+    - name: Install the Gitea SSH probe service
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/gitea-ssh-probe.service
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=Probe Git SSH on git.rye.ninja and report to Healthchecks
+          Wants=network-online.target
+          After=network-online.target docker.service
+
+          [Service]
+          Type=oneshot
+          EnvironmentFile=/opt/healthchecks/gitea-ssh-probe.env
+          ExecStart=/usr/local/sbin/gitea-ssh-probe
+      notify: Reload systemd
+
+    - name: Install the Gitea SSH probe timer
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/gitea-ssh-probe.timer
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=Probe Git SSH every 5 minutes
+
+          [Timer]
+          OnCalendar=*:0/5
+          RandomizedDelaySec=30
+          Persistent=true
+
+          [Install]
+          WantedBy=timers.target
+      notify: Reload systemd
+
+    - name: Flush handlers so systemd sees the probe units
+      ansible.builtin.meta: flush_handlers
+
+    - name: Enable the Gitea SSH probe timer
+      ansible.builtin.systemd:
+        name: gitea-ssh-probe.timer
+        state: started
+        enabled: true
+
   handlers:
     - name: Reload systemd
       ansible.builtin.systemd:
