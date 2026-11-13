@@ -703,3 +703,15 @@ variable "oidc_issuers" {
     error_message = "Each issuer's username and groups mapping must set exactly one of claim or expression."
   }
 }
+
+variable "rootless_test_node_enabled" {
+  description = "Provision one extra worker (rootless_test_node.tf) with user.max_user_namespaces raised, a pool=rootless-test label and a NoSchedule taint, to test rootless Docker-in-Docker for the Gitea Actions runners. Talos disables user namespaces by default; this keeps the sysctl off the regular workers. Off by default; set false again (and apply) to remove the node."
+  type        = bool
+  default     = false
+}
+
+variable "rootless_test_node_disk_gb" {
+  description = "Root volume size in GiB for the rootless_test_node.tf worker. Docker image layers and build caches for the Gitea Actions jobs live on the node's ephemeral partition, so it needs more than the 20 GiB regular workers."
+  type        = number
+  default     = 80
+}

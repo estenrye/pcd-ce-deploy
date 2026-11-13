@@ -588,8 +588,10 @@ resource "talos_machine_bootstrap" "this" {
 data "talos_cluster_health" "this" {
   client_configuration = talos_machine_secrets.this.client_configuration
   control_plane_nodes  = local.controlplane_addresses
-  worker_nodes         = local.worker_addresses
-  endpoints            = local.controlplane_addresses
+  # The optional rootless test node (rootless_test_node.tf) joins the same cluster;
+  # left out, the check reports it as an unexpected node.
+  worker_nodes = concat(local.worker_addresses, compact([local.rootless_test_address]))
+  endpoints    = local.controlplane_addresses
 
   depends_on = [
     talos_machine_bootstrap.this,
