@@ -117,6 +117,17 @@ CHECKS = [
         "core-infra gitea",
         "Pinged by the gitea-repos-capacity CronJob while the newest ZFS snapshot of the Gitea repository dataset is under 26 hours old; /fail when older or missing.",
     ),
+    # gitea-ssh-probe.timer on this VM, every 5 minutes: connects to
+    # git.rye.ninja:22 and reads the SSH banner (from outside the cluster, which
+    # cannot reach its own public VIP).
+    (
+        "gitea-ssh",
+        "gitea-ssh",
+        timedelta(minutes=5),
+        timedelta(minutes=10),
+        "core-infra gitea",
+        "Pinged by gitea-ssh-probe.service on this VM while git.rye.ninja:22 answers with an SSH banner; /fail when it does not.",
+    ),
     # Daily 02:30 UTC timer on this VM (healthchecks-db-backup.timer). It can
     # only alert while Healthchecks itself is up: it catches a failing backup,
     # not the loss of this VM.
