@@ -95,6 +95,25 @@ CHECKS = [
         "core-infra cnpg backup",
         "Pinged by the cnpg-backup-watcher CronJob when the latest CNPG backup is fresh and WAL archiving is healthy.",
     ),
+    (
+        "cnpg-backup harbor-db",
+        "cnpg-backup-harbor-db",
+        timedelta(days=1),
+        timedelta(hours=3),
+        "core-infra cnpg backup",
+        "Pinged by the cnpg-backup-watcher CronJob when the latest CNPG backup is fresh and WAL archiving is healthy.",
+    ),
+    # harbor-warmup CronJob (flux-platform-src applications/harbor), daily 05:47 UTC:
+    # pulls the images in warmup.images.txt through Harbor so they are cached; pings
+    # when every image warmed, /fail with the list of failures otherwise.
+    (
+        "harbor-warmup",
+        "harbor-warmup",
+        timedelta(days=1),
+        timedelta(hours=3),
+        "core-infra harbor",
+        "Pinged by the harbor-warmup CronJob when every image in its list was pulled through Harbor; /fail with the failing images otherwise.",
+    ),
     # gitea-repos-capacity CronJob (flux-platform-src applications/gitea) runs
     # hourly at :17, pings on success and /fail at 75% or more of the
     # gitea-repos dataset quota (50 GiB).
