@@ -151,6 +151,16 @@ security_group_rules = {
         port_range_max     = 443
         remote_ip_prefix   = "fd97:45c2:b3a1::/48"
     },
+    "allow-web-https-v6-pcd-lab-gateway-ingress" = {
+        security_group     = "allow-web-internal"
+        description        = "Allow HTTPS from the pcd-lab gateway (global EUI-64 address) for its Healthchecks pings"
+        direction          = "ingress"
+        ethertype          = "IPv6"
+        protocol           = "tcp"
+        port_range_min     = 443
+        port_range_max     = 443
+        remote_ip_prefix   = "2607:3640:1064:272:a2c5:89ff:fe8d:89a2/128"
+    },
     "allow-bgp-icmp-v6-egress" = {
         security_group     = "allow-bgp-icmp"
         description        = "Allow ICMPv6 to the bgp-net gateway"

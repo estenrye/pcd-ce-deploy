@@ -197,6 +197,34 @@ CHECKS = [
         "kvm backup",
         "Pinged by zfs-replicate-vms.service on mf-ms-a2-01 after the nightly vmpool/vms zvol replication to the NAS completes.",
     ),
+    # pcd-lab-manager (the lab gateway, separate hardware from the PCD hypervisor).
+    # Spec: pcd-lab-manager docs/superpowers/specs/2026-11-16-healthchecks-integration-design.md.
+    # The poller's silence also means the gateway is down (e.g. stuck at the LUKS prompt).
+    (
+        "pcd-lab gitea-poller",
+        "pcd-lab-gitea-poller",
+        timedelta(minutes=5),
+        timedelta(minutes=10),
+        "pcd-lab scotty",
+        "Pinged by scotty-gitea-poller.service on pcd-lab-manager.rye.ninja every run. "
+        "Silence also means the lab gateway is down (e.g. stuck at the LUKS prompt).",
+    ),
+    (
+        "pcd-lab applier",
+        "pcd-lab-applier",
+        timedelta(minutes=15),
+        timedelta(minutes=30),
+        "pcd-lab gitops",
+        "applier-01 reconcile: /start, success after apply + verify of main@<sha>, /fail on error.",
+    ),
+    (
+        "pcd-lab drift-report",
+        "pcd-lab-drift-report",
+        timedelta(days=1),
+        timedelta(hours=3),
+        "pcd-lab gitops",
+        "Nightly check-mode drift report; success when the job ran (drift itself goes to ntfy + a Gitea issue).",
+    ),
 ]
 
 for name, slug, period, grace, tags, desc in CHECKS:
