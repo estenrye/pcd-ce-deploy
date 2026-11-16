@@ -225,6 +225,16 @@ CHECKS = [
         "pcd-lab gitops",
         "Nightly check-mode drift report; success when the job ran (drift itself goes to ntfy + a Gitea issue).",
     ),
+    # scotty-ops-loop on the lab gateway pings after every pass, empty queue
+    # included. Spec: pcd-lab-manager docs/superpowers/plans/2026-11-16-scotty-ops-worker.md (task 4).
+    (
+        "pcd-lab scotty-ops",
+        "pcd-lab-scotty-ops",
+        timedelta(hours=1),
+        timedelta(hours=1),
+        "pcd-lab scotty",
+        "Pinged by scotty-ops-loop on pcd-lab-manager.rye.ninja after every pass (empty queue included); /fail after 3 failed runs in a row.",
+    ),
 ]
 
 for name, slug, period, grace, tags, desc in CHECKS:
