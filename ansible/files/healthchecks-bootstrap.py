@@ -203,10 +203,11 @@ CHECKS = [
     (
         "pcd-lab gitea-poller",
         "pcd-lab-gitea-poller",
-        timedelta(minutes=5),
-        timedelta(minutes=10),
+        timedelta(minutes=15),
+        timedelta(minutes=15),
         "pcd-lab scotty",
-        "Pinged by scotty-gitea-poller.service on pcd-lab-manager.rye.ninja every run. "
+        "Pinged by scotty-gitea-poller.service on pcd-lab-manager.rye.ninja every run "
+        "(every 15 min since 2026-11-17; the ntfy inbox also pokes it). "
         "Silence also means the lab gateway is down (e.g. stuck at the LUKS prompt).",
     ),
     (
